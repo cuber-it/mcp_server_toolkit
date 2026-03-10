@@ -1,0 +1,13 @@
+# MCP Server Factory — Example Configuration
+server_name: "MCP Factory"
+transport: stdio
+log_level: INFO
+
+plugins:
+  echo:
+    enabled: true
+  # wekan:
+  #   enabled: true
+  #   url: "http://localhost:12050"
+  # shell:
+  #   enabled: true

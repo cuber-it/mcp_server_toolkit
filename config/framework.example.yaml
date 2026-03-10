@@ -1,0 +1,27 @@
+# MCP Server Framework — Example Configuration
+#
+# Copy to config/config.yaml and adjust.
+# All values can be overridden via ENV (MCP_*).
+
+server_name: "My MCP Server"
+version: "1.0.0"
+instructions: "Description of available tools"
+service_type: "generic"
+log_level: INFO
+
+# Transport (default: stdio)
+# transport: http
+# host: 0.0.0.0
+# port: 12201
+
+# Health endpoint (default: port + 1)
+# health_port: 12202
+
+# OAuth (optional)
+# oauth_enabled: true
+# oauth_public_url: https://example.com
+
+# Tool names (for monitoring/registry)
+# tools:
+#   - my_tool_a
+#   - my_tool_b
