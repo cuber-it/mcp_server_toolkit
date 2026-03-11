@@ -49,6 +49,7 @@ def _build_oauth(config: dict[str, Any]) -> tuple[Any, Any]:
         introspection_endpoint=f"{oauth_server_url}/introspect",
         server_url=public_url,
         validate_resource=False,
+        cache_ttl=config.get("oauth_cache_ttl", 28800),
     )
     auth_settings = AuthSettings(
         issuer_url=AnyHttpUrl(oauth_server_url),

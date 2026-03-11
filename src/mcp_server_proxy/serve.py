@@ -9,6 +9,7 @@ import sys
 
 from mcp_server_framework import create_server, load_config, run_server, setup_logging, start_health_server
 from mcp_server_framework.plugins.loader import add_plugin_dir
+from mcp_server_framework.plugins.tracker import set_log_callback
 
 from .cli import DEFAULT_MGMT_PORT
 from .client import is_proxy_running
@@ -34,6 +35,12 @@ def cmd_serve(args: argparse.Namespace) -> None:
 
     for plugin_dir in getattr(args, "plugin_dir", []):
         add_plugin_dir(plugin_dir.resolve())
+
+    # Persistent tool call logging
+    from .tool_log import ToolLog
+    tool_log = ToolLog()
+    set_log_callback(tool_log.log_call)
+    logger.info("Tool call log: %s", tool_log.path)
 
     mcp = create_server(config)
     proxy = PluginManager(mcp, config)
