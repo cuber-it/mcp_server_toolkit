@@ -85,7 +85,7 @@ without MCP dependencies.
 | `greet` | 1 | Minimal example — greet by name |
 | `mattermost` | 5 | Mattermost REST API (send, channels, posts, search, user) |
 | `wekan` | 18 | Wekan Kanban REST API (boards, cards, checklists, labels) |
-| `shell` | 12 | Filesystem, search, shell execution, navigation |
+| `shell` | 33 | Filesystem, editor, search, shell, git, systemd, HTTP, packages, diagnostics |
 
 ## Proxy Features
 
@@ -172,11 +172,7 @@ Commands are available via MCP tools and the REST management API.
 ## OAuth Authentication
 
 OAuth is **enabled by default** for HTTP transport (ignored for stdio).
-Install the optional dependency:
-
-```bash
-pip install mcp-server-toolkit[oauth]
-```
+Uses RFC 7662 Token Introspection — no extra dependencies needed (uses httpx from MCP SDK).
 
 Configure via YAML or environment variables:
 
@@ -343,7 +339,7 @@ Example configs in `config/` and `examples/configs/`.
 ## Tests
 
 ```bash
-pytest           # 147 tests
+pytest           # 159 tests
 pytest -v        # verbose
 pytest tests/proxy/   # proxy only
 ```
@@ -360,12 +356,12 @@ plugins/
 ├── greet.py                  # Minimal example
 ├── mattermost/               # REST adapter (Mattermost)
 ├── wekan/                    # REST adapter (Wekan Kanban)
-└── shell/                    # Workstation tools (filesystem, search, exec)
+└── shell/                    # 33 workstation tools (filesystem, editor, search, shell, git, system, HTTP, packages)
 examples/
 ├── mcp_client.py             # Interactive test client
 ├── configs/                  # Ready-to-use YAML configs
 └── *.sh                      # Launch scripts
-tests/                        # 147 tests (framework, factory, proxy, plugins)
+tests/                        # 159 tests (framework, factory, proxy, plugins)
 config/                       # Example configs + systemd service
 ```
 

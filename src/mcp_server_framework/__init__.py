@@ -17,7 +17,7 @@ Plugin API (via mcp_server_framework.plugins):
     ToolTracker(mcp)               → Proxy that tracks tool registrations
 """
 
-__version__ = "0.9.2"
+__version__ = "1.0.0"
 
 from .config import load_config
 from .server import create_server, run_server

@@ -1,18 +1,18 @@
 """Tests for proxy CLI argument parsing and auto-detection."""
 
-import sys
 from unittest.mock import patch, MagicMock
 
 import pytest
 
-from mcp_server_proxy.commands import parse_args, _is_proxy_running, DEFAULT_MGMT_PORT
+from mcp_server_proxy.cli import parse_args, DEFAULT_MGMT_PORT
+from mcp_server_proxy.client import is_proxy_running
 
 
 class TestParseArgs:
     def test_no_args_is_serve(self):
         with patch("sys.argv", ["mcp-proxy"]):
             args = parse_args()
-            assert args.command is None  # defaults to serve
+            assert args.command is None
 
     def test_serve_explicit(self):
         with patch("sys.argv", ["mcp-proxy", "serve"]):
@@ -83,15 +83,15 @@ class TestParseArgs:
 
 class TestAutoDetection:
     def test_not_running(self):
-        assert not _is_proxy_running(19999)  # unlikely port
+        assert not is_proxy_running(19999)
 
-    @patch("mcp_server_proxy.commands.httpx.get")
+    @patch("mcp_server_proxy.client.httpx.get")
     def test_running(self, mock_get):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_get.return_value = mock_resp
-        assert _is_proxy_running(12299)
+        assert is_proxy_running(12299)
 
-    @patch("mcp_server_proxy.commands.httpx.get", side_effect=Exception("fail"))
+    @patch("mcp_server_proxy.client.httpx.get", side_effect=Exception("fail"))
     def test_error_means_not_running(self, mock_get):
-        assert not _is_proxy_running(12299)
+        assert not is_proxy_running(12299)
