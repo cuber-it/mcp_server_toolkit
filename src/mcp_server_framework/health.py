@@ -121,12 +121,15 @@ def start_health_server(
         registry_setup(health_app)
 
     def _run():
-        uvicorn.run(
-            health_app,
-            host="0.0.0.0",
-            port=port,
-            log_level="warning",
-        )
+        try:
+            uvicorn.run(
+                health_app,
+                host="0.0.0.0",
+                port=port,
+                log_level="warning",
+            )
+        except OSError as e:
+            logger.warning("Health server failed to start on port %d: %s", port, e)
 
     t = threading.Thread(
         target=_run, daemon=True, name="health-server",
