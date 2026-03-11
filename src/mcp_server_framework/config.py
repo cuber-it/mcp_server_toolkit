@@ -33,8 +33,9 @@ _DEFAULTS: dict[str, Any] = {
     "transport": "stdio",
     # Health
     "health_port": None,  # Default: port + 1
-    # OAuth
-    "oauth_enabled": False,
+    # OAuth (enabled by default for HTTP, ignored for stdio)
+    "oauth_enabled": True,
+    "oauth_server_url": None,
     "oauth_public_url": None,
     # Tool names (for registry/monitoring)
     "tools": [],
@@ -49,6 +50,7 @@ _ENV_MAPPING: dict[str, tuple[str, type]] = {
     "MCP_HEALTH_PORT": ("health_port", int),
     "MCP_TRANSPORT": ("transport", str),
     "MCP_OAUTH_ENABLED": ("oauth_enabled", _parse_bool),
+    "MCP_OAUTH_SERVER_URL": ("oauth_server_url", str),
     "MCP_PUBLIC_URL": ("oauth_public_url", str),
 }
 

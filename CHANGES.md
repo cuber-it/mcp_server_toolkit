@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.2 (2026-03-11)
+
+### Framework
+- OAuth support via `mcp-oauth` (optional dependency: `pip install mcp-server-toolkit[oauth]`)
+- OAuth enabled by default for HTTP transport — set `oauth_enabled: false` to disable
+- Graceful fallback: missing URLs → warning, missing package → warning, stdio → ignored
+- New config keys: `oauth_server_url`, `oauth_public_url` (+ ENV: `MCP_OAUTH_SERVER_URL`)
+
+### Tests
+- 147 tests (was 141)
+
 ## 0.9.0 (2026-03-11)
 
 Feature-complete release.

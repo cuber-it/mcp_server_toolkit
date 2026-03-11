@@ -23,7 +23,9 @@ def test_defaults():
     assert config["transport"] == "stdio"
     assert config["port"] == 12201
     assert config["health_port"] == 12202  # port + 1
-    assert config["oauth_enabled"] is False
+    assert config["oauth_enabled"] is True  # enabled by default
+    assert config["oauth_server_url"] is None
+    assert config["oauth_public_url"] is None
     assert config["tools"] == []
 
 
@@ -32,13 +34,17 @@ def test_env_override(monkeypatch):
     monkeypatch.setenv("MCP_SERVER_NAME", "Test Server")
     monkeypatch.setenv("MCP_LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("MCP_PORT", "12301")
-    monkeypatch.setenv("MCP_OAUTH_ENABLED", "true")
+    monkeypatch.setenv("MCP_OAUTH_ENABLED", "false")
+    monkeypatch.setenv("MCP_OAUTH_SERVER_URL", "https://auth.example.com")
+    monkeypatch.setenv("MCP_PUBLIC_URL", "https://mcp.example.com")
     config = load_config()
     assert config["server_name"] == "Test Server"
     assert config["log_level"] == "DEBUG"
     assert config["port"] == 12301
     assert config["health_port"] == 12302  # port + 1
-    assert config["oauth_enabled"] is True
+    assert config["oauth_enabled"] is False
+    assert config["oauth_server_url"] == "https://auth.example.com"
+    assert config["oauth_public_url"] == "https://mcp.example.com"
 
 
 def test_env_invalid_port(monkeypatch):

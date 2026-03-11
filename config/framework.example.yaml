@@ -18,9 +18,11 @@ log_level: INFO
 # Health endpoint (default: port + 1)
 # health_port: 12202
 
-# OAuth (optional)
+# OAuth (enabled by default for HTTP transport, ignored for stdio)
+# Disable explicitly with: oauth_enabled: false
 # oauth_enabled: true
-# oauth_public_url: https://example.com
+# oauth_server_url: https://auth.example.com
+# oauth_public_url: https://mcp.example.com
 
 # Tool names (for monitoring/registry)
 # tools:

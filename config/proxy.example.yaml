@@ -8,6 +8,11 @@ management_port: 12299
 log_level: INFO
 # log_format: json          # "json" for machine-readable, default: "text"
 
+# OAuth (enabled by default for HTTP transport)
+# Disable explicitly with: oauth_enabled: false
+# oauth_server_url: "https://auth.example.com"
+# oauth_public_url: "https://mcp.example.com"
+
 # Management API authentication (optional).
 # Without token, no auth is required (development default).
 # management_token: "${MCP_MGMT_TOKEN}"

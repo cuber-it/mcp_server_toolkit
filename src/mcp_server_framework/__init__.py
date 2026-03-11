@@ -17,12 +17,13 @@ Plugin API (via mcp_server_framework.plugins):
     ToolTracker(mcp)               → Proxy that tracks tool registrations
 """
 
-__version__ = "0.9.0"
+__version__ = "0.9.2"
 
 from .config import load_config
 from .server import create_server, run_server
 from .health import start_health_server, create_health_app
 from .logging import setup_logging
+from .oauth import IntrospectionTokenVerifier
 
 __all__ = [
     "load_config",
@@ -31,4 +32,5 @@ __all__ = [
     "start_health_server",
     "create_health_app",
     "setup_logging",
+    "IntrospectionTokenVerifier",
 ]

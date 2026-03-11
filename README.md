@@ -169,6 +169,42 @@ def register(mcp, config: dict) -> None:
 
 Commands are available via MCP tools and the REST management API.
 
+## OAuth Authentication
+
+OAuth is **enabled by default** for HTTP transport (ignored for stdio).
+Install the optional dependency:
+
+```bash
+pip install mcp-server-toolkit[oauth]
+```
+
+Configure via YAML or environment variables:
+
+```yaml
+# config.yaml
+oauth_enabled: true                              # default: true
+oauth_server_url: "https://auth.example.com"     # OAuth introspection endpoint
+oauth_public_url: "https://mcp.example.com"      # Public URL of this server
+```
+
+```bash
+# Or via environment
+export MCP_OAUTH_ENABLED=true
+export MCP_OAUTH_SERVER_URL=https://auth.example.com
+export MCP_PUBLIC_URL=https://mcp.example.com
+```
+
+**Behavior:**
+- HTTP + OAuth configured → full token verification via introspection
+- HTTP + OAuth enabled but URLs missing → **warning**, runs without auth
+- HTTP + `oauth_enabled: false` → no auth, no warning
+- stdio → OAuth ignored regardless of config
+
+To explicitly disable:
+```yaml
+oauth_enabled: false
+```
+
 ## Security
 
 ### Shell Plugin Boundaries
@@ -271,10 +307,16 @@ host: "0.0.0.0"
 port: 12200
 health_port: 12201
 management_port: 12299
-management_token: "${MCP_MGMT_TOKEN}"   # optional auth
 log_level: INFO
 log_format: text           # text | json
 auto_prefix: true
+
+# OAuth (enabled by default for HTTP, set false to disable)
+oauth_server_url: "https://auth.example.com"
+oauth_public_url: "https://mcp.example.com"
+
+# Management API auth (separate from OAuth, optional)
+management_token: "${MCP_MGMT_TOKEN}"
 
 autoload:
   - echo
@@ -301,7 +343,7 @@ Example configs in `config/` and `examples/configs/`.
 ## Tests
 
 ```bash
-pytest           # 141 tests
+pytest           # 147 tests
 pytest -v        # verbose
 pytest tests/proxy/   # proxy only
 ```
@@ -323,7 +365,7 @@ examples/
 ├── mcp_client.py             # Interactive test client
 ├── configs/                  # Ready-to-use YAML configs
 └── *.sh                      # Launch scripts
-tests/                        # 141 tests (framework, factory, proxy, plugins)
+tests/                        # 147 tests (framework, factory, proxy, plugins)
 config/                       # Example configs + systemd service
 ```
 
