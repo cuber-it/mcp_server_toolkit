@@ -129,9 +129,10 @@ def start_health_server(
             sock.close()
         except OSError:
             sock.close()
+            hint = f"Check with: lsof -i :{port} or ss -tlnp sport = :{port}"
             logger.warning(
                 "Health server port %d already in use, skipping. "
-                "Use --health-port to choose a different port.", port,
+                "Use --health-port to choose a different port. %s", port, hint,
             )
             return
         uvicorn.run(
