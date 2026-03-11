@@ -7,6 +7,11 @@ port: 12200
 health_port: 12201
 management_port: 12299
 log_level: INFO
+# log_format: json          # "json" for machine-readable, default: "text"
+
+# Management API authentication (optional)
+# management_token: "${MCP_MGMT_TOKEN}"
+
 auto_prefix: true
 
 autoload:
@@ -22,6 +27,13 @@ plugins:
   shell:
     enabled: true
     timeout: 60
+    # Security boundaries (optional):
+    # allowed_paths:
+    #   - "/home/user/projects"
+    #   - "/tmp"
+    # blocked_commands:
+    #   - "sudo"
+    #   - "rm -rf /"
   # Uncomment and configure to use:
   # mattermost:
   #   enabled: true

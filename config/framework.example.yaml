@@ -8,6 +8,7 @@ version: "1.0.0"
 instructions: "Description of available tools"
 service_type: "generic"
 log_level: INFO
+# log_format: json          # "json" for machine-readable, default: "text"
 
 # Transport (default: stdio)
 # transport: http

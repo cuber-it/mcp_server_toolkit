@@ -32,6 +32,7 @@ You can load/unload plugins at runtime.
 # Terminal 3: Management (optional)
 mcp-proxy status
 mcp-proxy load greet
+mcp-proxy load shell
 mcp-proxy unload echo
 ```
 
@@ -46,7 +47,29 @@ Proxy with the shell plugin — filesystem, search, shell execution.
 ./examples/connect_proxy_http.sh
 ```
 
-### 4. Interactive Client (manual)
+### 4. Proxy + Full (HTTP)
+Proxy with echo + shell, auto-prefix enabled to avoid tool name collisions.
+
+```bash
+# Terminal 1
+./examples/run_proxy_full.sh
+
+# Terminal 2
+./examples/connect_proxy_http.sh
+```
+
+### 5. Proxy with authentication
+
+```bash
+# Terminal 1: Start with token
+MCP_MGMT_TOKEN=secret mcp-proxy serve --autoload echo --http 12200 --plugin-dir ./plugins
+
+# Terminal 2: Management with token
+mcp-proxy status --token secret
+mcp-proxy load shell --token secret
+```
+
+### 6. Interactive Client (manual)
 Connect to any running MCP server:
 
 ```bash
@@ -57,14 +80,33 @@ python examples/mcp_client.py stdio -- mcp-factory --config examples/configs/fac
 python examples/mcp_client.py http http://localhost:12200/mcp
 
 # Verbose mode (shows protocol messages)
-python examples/mcp_client.py -v stdio -- mcp-proxy --autoload echo
+python examples/mcp_client.py -v http http://localhost:12200/mcp
 ```
 
 ## Client REPL Commands
 
-Once connected, type:
-- `tools` — list all available tools
-- `call <name>` — call a tool (prompts for arguments)
-- `info` — show server info
-- `help` — all commands
-- `quit` — disconnect
+Once connected:
+
+```
+tools              List all available tools
+echo hello         Call a tool directly (shorthand)
+echo_upper world   Single-arg shorthand
+proxy__status      No-arg tools work too
+call echo          Interactive mode (prompts for arguments)
+resources          List available resources
+prompts            List available prompts
+info               Show server info
+help               All commands
+quit               Disconnect
+```
+
+## Configuration Files
+
+| File | Description |
+|------|-------------|
+| `configs/factory_echo.yaml` | Factory + Echo (stdio) |
+| `configs/proxy_echo.yaml` | Proxy + Echo (HTTP) |
+| `configs/proxy_shell.yaml` | Proxy + Shell (HTTP) |
+| `configs/proxy_full.yaml` | Proxy + Echo + Shell (HTTP, auto-prefix) |
+
+More examples in `config/` at the project root.

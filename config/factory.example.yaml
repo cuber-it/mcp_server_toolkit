@@ -2,12 +2,20 @@
 server_name: "MCP Factory"
 transport: stdio
 log_level: INFO
+# log_format: json          # "json" for machine-readable, default: "text"
 
 plugins:
   echo:
     enabled: true
+  # greet:
+  #   enabled: true
+  # shell:
+  #   enabled: true
+  #   timeout: 60
+  #   allowed_paths:
+  #     - "/home/user/projects"
+  #   blocked_commands:
+  #     - "sudo"
   # wekan:
   #   enabled: true
   #   url: "http://localhost:12050"
-  # shell:
-  #   enabled: true
