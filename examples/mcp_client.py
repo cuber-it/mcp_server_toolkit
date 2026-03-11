@@ -35,6 +35,8 @@ import sys
 import time
 from typing import Any
 
+import anyio
+
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.client.streamable_http import streamable_http_client
@@ -71,9 +73,7 @@ async def repl(session: ClientSession, proto: ProtocolLogger) -> None:
 
     while True:
         try:
-            line = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: input("mcp> ")
-            )
+            line = await anyio.to_thread.run_sync(lambda: input("mcp> "))
         except (EOFError, KeyboardInterrupt):
             print()
             break
@@ -260,12 +260,12 @@ async def connect_stdio(args: argparse.Namespace, proto: ProtocolLogger) -> None
     params = StdioServerParameters(command=command, args=cmd_args)
 
     async with stdio_client(params) as (read_stream, write_stream):
-        session = ClientSession(read_stream, write_stream)
-        proto.log("send", "initialize")
-        init = await session.initialize()
-        proto.log("recv", f"initialized: {init.serverInfo}")
-        print(f"Server: {init.serverInfo.name} v{init.serverInfo.version}")
-        await repl(session, proto)
+        async with ClientSession(read_stream, write_stream) as session:
+            proto.log("send", "initialize")
+            init = await session.initialize()
+            proto.log("recv", f"initialized: {init.serverInfo}")
+            print(f"Server: {init.serverInfo.name} v{init.serverInfo.version}")
+            await repl(session, proto)
 
 
 async def connect_http(args: argparse.Namespace, proto: ProtocolLogger) -> None:
@@ -275,15 +275,15 @@ async def connect_http(args: argparse.Namespace, proto: ProtocolLogger) -> None:
     proto.info(f"Connecting via HTTP: {url}")
 
     async with streamable_http_client(url) as (read_stream, write_stream, get_session_id):
-        session = ClientSession(read_stream, write_stream)
-        proto.log("send", "initialize")
-        init = await session.initialize()
-        session_id = get_session_id()
-        proto.log("recv", f"initialized: {init.serverInfo}, session={session_id}")
-        print(f"Server: {init.serverInfo.name} v{init.serverInfo.version}")
-        if session_id:
-            print(f"Session: {session_id}")
-        await repl(session, proto)
+        async with ClientSession(read_stream, write_stream) as session:
+            proto.log("send", "initialize")
+            init = await session.initialize()
+            session_id = get_session_id()
+            proto.log("recv", f"initialized: {init.serverInfo}, session={session_id}")
+            print(f"Server: {init.serverInfo.name} v{init.serverInfo.version}")
+            if session_id:
+                print(f"Session: {session_id}")
+            await repl(session, proto)
 
 
 # --- Main ---
@@ -324,9 +324,9 @@ def main() -> None:
 
     try:
         if args.transport == "stdio":
-            asyncio.run(connect_stdio(args, proto))
+            anyio.run(connect_stdio, args, proto)
         elif args.transport == "http":
-            asyncio.run(connect_http(args, proto))
+            anyio.run(connect_http, args, proto)
     except KeyboardInterrupt:
         print("\nDisconnected.")
 
