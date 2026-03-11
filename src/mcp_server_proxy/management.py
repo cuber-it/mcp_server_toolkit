@@ -58,6 +58,15 @@ def create_management_app(proxy: PluginManager) -> FastAPI:
             return {"ok": True, "plugin": req.plugin, "tools": result.tools}
         return JSONResponse(status_code=400, content={"ok": False, "error": result.error})
 
+    @app.get("/proxy/commands")
+    async def commands():
+        return {"commands": proxy.commands}
+
+    @app.post("/proxy/command/{name}")
+    async def run_command(name: str):
+        result = proxy.run_command(name)
+        return {"command": name, "result": result}
+
     return app
 
 

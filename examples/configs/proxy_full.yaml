@@ -7,6 +7,7 @@ port: 12200
 health_port: 12201
 management_port: 12299
 log_level: INFO
+auto_prefix: true
 
 autoload:
   - echo
@@ -15,6 +16,7 @@ autoload:
 plugins:
   echo:
     enabled: true
+    prefix: false     # echo tools are already short, no prefix needed
   greet:
     enabled: true
   shell:

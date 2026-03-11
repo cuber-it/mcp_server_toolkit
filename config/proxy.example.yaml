@@ -7,6 +7,12 @@ health_port: 12201
 management_port: 12299
 log_level: INFO
 
+# Auto-prefix: tool names get prefixed with plugin name to avoid collisions.
+# "send_message" from plugin "mm" becomes "mm_send_message".
+# Tools already starting with the prefix are not double-prefixed.
+# Default: false. Per-plugin override with "prefix: custom" or "prefix: false".
+auto_prefix: false
+
 # Plugins loaded at startup
 autoload:
   - echo
@@ -18,3 +24,9 @@ plugins:
   #   enabled: true
   #   url: "https://mm.example.com"
   #   token: "${MM_TOKEN}"
+  #   prefix: "mm"           # custom prefix
+  # wekan:
+  #   enabled: true
+  #   url: "http://localhost:12050"
+  #   username: "admin"
+  #   password: "secret"

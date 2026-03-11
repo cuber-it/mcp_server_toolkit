@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from types import ModuleType
-from typing import Any
+from typing import Any, Callable
 
 from mcp.server.fastmcp import FastMCP
 
@@ -31,13 +31,44 @@ class UnloadResult:
 
 
 class PluginManager:
-    """Dynamic plugin management — load, unload and reload at runtime."""
+    """Dynamic plugin management — load, unload and reload at runtime.
+
+    Supports management command extensions via ``register_command()``.
+    Extensions can add MCP tools and FastAPI endpoints for custom management.
+    """
 
     def __init__(self, mcp: FastMCP, config: dict[str, Any]):
         self.mcp = mcp
         self.config = config
         self.plugins: dict[str, LoadedPlugin] = {}
         self._all_tools: set[str] = set()
+        self._commands: dict[str, Callable] = {}
+
+    def register_command(self, name: str, handler: Callable) -> None:
+        """Register a management command extension.
+
+        Args:
+            name: Command name (e.g. "backup", "metrics").
+            handler: Callable(proxy, **kwargs) -> str. Will be exposed
+                via MCP tool ``proxy__<name>`` and management API.
+        """
+        self._commands[name] = handler
+        logger.info("Management command registered: %s", name)
+
+    def run_command(self, name: str, **kwargs) -> str:
+        """Execute a registered management command."""
+        handler = self._commands.get(name)
+        if handler is None:
+            return f"Unknown command: {name}"
+        try:
+            return handler(self, **kwargs)
+        except Exception as e:
+            return f"Command '{name}' failed: {e}"
+
+    @property
+    def commands(self) -> list[str]:
+        """List registered management commands."""
+        return list(self._commands.keys())
 
     def load(self, name: str) -> LoadResult:
         """Load a plugin by name. Returns LoadResult with tools or error."""
@@ -57,7 +88,8 @@ class PluginManager:
         if register_fn is None:
             return LoadResult(ok=False, error=f"Plugin '{name}' has no register() function")
 
-        tracker = ToolTracker(self.mcp)
+        prefix = self._resolve_prefix(name, plugin_config if isinstance(plugin_config, dict) else {})
+        tracker = ToolTracker(self.mcp, prefix=prefix)
         try:
             register_fn(tracker, plugin_config if isinstance(plugin_config, dict) else {})
         except Exception as e:
@@ -127,6 +159,26 @@ class PluginManager:
                 for name, p in self.plugins.items()
             },
         }
+
+    def _resolve_prefix(self, plugin_name: str, plugin_config: dict) -> str | None:
+        """Determine the tool name prefix for a plugin.
+
+        Priority:
+            1. Per-plugin ``prefix`` in config (False = no prefix, str = custom)
+            2. Global ``auto_prefix`` in proxy config (default: True → use plugin name)
+        """
+        # Per-plugin override
+        if "prefix" in plugin_config:
+            val = plugin_config["prefix"]
+            if val is False or val == "":
+                return None
+            return str(val)
+
+        # Global setting
+        auto_prefix = self.config.get("auto_prefix", False)
+        if auto_prefix:
+            return plugin_name
+        return None
 
     def _remove_tool_from_mcp(self, tool_name: str) -> bool:
         """Remove a tool from FastMCP internals. Returns True if removed."""
