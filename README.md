@@ -65,6 +65,16 @@ def register(mcp, config: dict) -> None:
 
 Works with Factory and Proxy without changes.
 
+### Create a New Plugin
+
+```bash
+./scripts/new-plugin.sh myservice          # creates plugins/myservice/
+./scripts/new-plugin.sh myservice ./src    # custom target directory
+```
+
+Generates `__init__.py` (MCP wiring) and `tools.py` (pure logic) with annotated
+examples — start editing `tools.py`, restart the proxy, done.
+
 ### Recommended Plugin Structure
 
 ```
@@ -173,6 +183,7 @@ Commands are available via MCP tools and the REST management API.
 
 OAuth is **enabled by default** for HTTP transport (ignored for stdio).
 Uses RFC 7662 Token Introspection — no extra dependencies needed (uses httpx from MCP SDK).
+Valid tokens are cached for 8 hours (configurable via `oauth_cache_ttl`) to reduce introspection load.
 
 Configure via YAML or environment variables:
 
@@ -181,6 +192,7 @@ Configure via YAML or environment variables:
 oauth_enabled: true                              # default: true
 oauth_server_url: "https://auth.example.com"     # OAuth introspection endpoint
 oauth_public_url: "https://mcp.example.com"      # Public URL of this server
+oauth_cache_ttl: 28800                           # token cache in seconds (default: 8h)
 ```
 
 ```bash
@@ -254,6 +266,18 @@ JSON output example:
 {"ts": "2026-03-11T10:30:00+00:00", "level": "INFO", "logger": "mcp_server_proxy.proxy", "msg": "Plugin 'echo' loaded: 2 tools ['echo', 'echo_upper']"}
 ```
 
+### Tool Call Logging (Proxy)
+
+The proxy automatically logs every tool call to `~/.mcp_proxy/logs/tool_calls.jsonl`:
+
+```json
+{"ts": "2026-03-11T14:30:00", "tool": "shell_exec", "params": {"command": "ls"}, "result": "...", "ok": true}
+```
+
+- Daily rotation with gzip compression (`YYYY-MM-DD.jsonl.gz`)
+- 90-day retention with automatic cleanup
+- Safe — never raises, never blocks tool execution
+
 ## Interactive Test Client
 
 Debug and explore any MCP server from the terminal:
@@ -310,6 +334,7 @@ auto_prefix: true
 # OAuth (enabled by default for HTTP, set false to disable)
 oauth_server_url: "https://auth.example.com"
 oauth_public_url: "https://mcp.example.com"
+oauth_cache_ttl: 28800          # token cache seconds (default: 8h, 0 = disabled)
 
 # Management API auth (separate from OAuth, optional)
 management_token: "${MCP_MGMT_TOKEN}"
@@ -361,6 +386,8 @@ examples/
 ├── mcp_client.py             # Interactive test client
 ├── configs/                  # Ready-to-use YAML configs
 └── *.sh                      # Launch scripts
+scripts/
+└── new-plugin.sh             # Plugin scaffold generator
 tests/                        # 159 tests (framework, factory, proxy, plugins)
 config/                       # Example configs + systemd service
 ```

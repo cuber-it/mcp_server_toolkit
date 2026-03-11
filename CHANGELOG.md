@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.1 (2026-03-11)
+
+### Framework
+- OAuth token cache with configurable TTL (default: 8h) — reduces introspection load
+
+### Proxy
+- Persistent tool call logging to `~/.mcp_proxy/logs/tool_calls.jsonl`
+- Daily log rotation with gzip compression, 90-day retention
+
+### Developer Experience
+- Plugin scaffold script: `scripts/new-plugin.sh` generates annotated plugin templates
+
 ## 1.0.0 (2026-03-11)
 
 First stable release.
