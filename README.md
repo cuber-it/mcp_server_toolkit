@@ -103,6 +103,31 @@ GET  /proxy/commands         Registered management extensions
 POST /proxy/command/{name}   Run a management extension
 ```
 
+### Management API Authentication
+
+Optionally protect the management API with a Bearer token:
+
+```yaml
+# proxy.yaml
+management_token: "${MCP_MGMT_TOKEN}"
+```
+
+```bash
+# Or via CLI
+mcp-proxy serve --mgmt-token "my-secret" --autoload echo
+
+# Client commands with token
+mcp-proxy status --token "my-secret"
+mcp-proxy load shell --token "my-secret"
+
+# Or via environment variable (works for both server and client)
+export MCP_MGMT_TOKEN="my-secret"
+mcp-proxy serve --autoload echo
+mcp-proxy status
+```
+
+Without a token configured, no authentication is required (development default).
+
 ### Auto-Prefix
 
 Avoid tool name collisions when loading multiple plugins:
@@ -144,6 +169,59 @@ def register(mcp, config: dict) -> None:
 
 Commands are available via MCP tools and the REST management API.
 
+## Security
+
+### Shell Plugin Boundaries
+
+The shell plugin supports configurable security boundaries:
+
+```yaml
+plugins:
+  shell:
+    enabled: true
+    allowed_paths:              # restrict filesystem access
+      - "/home/user/projects"
+      - "/tmp"
+    blocked_commands:            # block dangerous commands
+      - "sudo"
+      - "rm -rf /"
+      - "chmod"
+```
+
+Without boundaries configured, the shell plugin has unrestricted access
+(suitable for local development). For shared or production deployments,
+configure `allowed_paths` and `blocked_commands`.
+
+### Pre-Call Validation
+
+Register a custom validator that runs before every tool invocation:
+
+```python
+from mcp_server_framework.plugins import set_pre_call_validator
+
+def my_validator(tool_name: str, params: dict) -> str | None:
+    """Return error string to reject, None to allow."""
+    if len(str(params)) > 100_000:
+        return "Input too large"
+    return None
+
+set_pre_call_validator(my_validator)
+```
+
+## Logging
+
+Configure log format via config or environment:
+
+```yaml
+log_level: INFO
+log_format: json    # "json" for machine-readable, "text" (default) for humans
+```
+
+JSON output example:
+```json
+{"ts": "2026-03-11T10:30:00+00:00", "level": "INFO", "logger": "mcp_server_proxy.proxy", "msg": "Plugin 'echo' loaded: 2 tools ['echo', 'echo_upper']"}
+```
+
 ## Interactive Test Client
 
 Debug and explore any MCP server from the terminal:
@@ -183,7 +261,9 @@ host: "0.0.0.0"
 port: 12200
 health_port: 12201
 management_port: 12299
+management_token: "${MCP_MGMT_TOKEN}"   # optional auth
 log_level: INFO
+log_format: text           # text | json
 auto_prefix: true
 
 autoload:
@@ -196,6 +276,10 @@ plugins:
   shell:
     enabled: true
     timeout: 60
+    allowed_paths:
+      - "/home/user/projects"
+    blocked_commands:
+      - "sudo"
   mattermost:
     enabled: true
     url: "https://mm.example.com"
@@ -207,7 +291,7 @@ Example configs in `config/` and `examples/configs/`.
 ## Tests
 
 ```bash
-pytest           # 119 tests
+pytest           # 141 tests
 pytest -v        # verbose
 pytest tests/proxy/   # proxy only
 ```
@@ -216,20 +300,20 @@ pytest tests/proxy/   # proxy only
 
 ```
 src/
-├── mcp_server_framework/     # Shared: config, server, health, plugins
+├── mcp_server_framework/     # Shared: config, server, health, logging, plugins
 ├── mcp_server_factory/       # Static loader + CLI
 └── mcp_server_proxy/         # Dynamic loader + management API + CLI
 plugins/
 ├── echo.py                   # Minimal example
 ├── greet.py                  # Minimal example
-├── mattermost/               # REST adapter reference
-├── wekan/                    # REST adapter reference
-└── shell/                    # Workstation tools reference
+├── mattermost/               # REST adapter (Mattermost)
+├── wekan/                    # REST adapter (Wekan Kanban)
+└── shell/                    # Workstation tools (filesystem, search, exec)
 examples/
 ├── mcp_client.py             # Interactive test client
 ├── configs/                  # Ready-to-use YAML configs
 └── *.sh                      # Launch scripts
-tests/                        # 119 tests (framework, factory, proxy, plugins)
+tests/                        # 141 tests (framework, factory, proxy, plugins)
 config/                       # Example configs + systemd service
 ```
 

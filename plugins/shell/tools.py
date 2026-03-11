@@ -2,6 +2,10 @@
 
 Provides filesystem operations, shell execution, and search.
 All path operations are relative to a configurable working directory.
+
+Security boundaries (optional, via config):
+    allowed_paths: list of allowed base directories (default: no restriction)
+    blocked_commands: list of blocked shell command prefixes (default: none)
 """
 
 from __future__ import annotations
@@ -18,6 +22,8 @@ from typing import Any
 # --- State ---
 
 _working_dir: Path = Path.cwd()
+_allowed_paths: list[Path] = []
+_blocked_commands: list[str] = []
 
 
 def set_working_dir(path: Path) -> None:
@@ -25,8 +31,42 @@ def set_working_dir(path: Path) -> None:
     _working_dir = path.resolve()
 
 
+def set_security_boundaries(
+    allowed_paths: list[str] | None = None,
+    blocked_commands: list[str] | None = None,
+) -> None:
+    """Configure security boundaries for shell operations."""
+    global _allowed_paths, _blocked_commands
+    _allowed_paths = [Path(p).resolve() for p in (allowed_paths or [])]
+    _blocked_commands = [c.strip() for c in (blocked_commands or [])]
+
+
 def get_working_dir() -> Path:
     return _working_dir
+
+
+def _check_path_allowed(resolved: Path) -> str | None:
+    """Return error message if path is outside allowed boundaries."""
+    if not _allowed_paths:
+        return None
+    for allowed in _allowed_paths:
+        try:
+            resolved.relative_to(allowed)
+            return None
+        except ValueError:
+            continue
+    return f"Error: Path '{resolved}' is outside allowed directories: {[str(p) for p in _allowed_paths]}"
+
+
+def _check_command_allowed(command: str) -> str | None:
+    """Return error message if command is blocked."""
+    if not _blocked_commands:
+        return None
+    cmd_stripped = command.strip()
+    for blocked in _blocked_commands:
+        if cmd_stripped.startswith(blocked) or f"| {blocked}" in cmd_stripped or f"; {blocked}" in cmd_stripped:
+            return f"Error: Command '{blocked}' is blocked by security policy"
+    return None
 
 
 def resolve_path(path: str) -> Path:
@@ -41,6 +81,8 @@ def resolve_path(path: str) -> Path:
 def file_read(path: str, start_line: int | None = None, end_line: int | None = None) -> str:
     """Read a file with optional line range. Returns content with line numbers."""
     resolved = resolve_path(path)
+    if err := _check_path_allowed(resolved):
+        return err
     if not resolved.exists():
         return f"Error: File not found: {resolved}"
     if not resolved.is_file():
@@ -66,6 +108,8 @@ def file_read(path: str, start_line: int | None = None, end_line: int | None = N
 def file_write(path: str, content: str) -> str:
     """Write content to a file. Creates parent directories if needed."""
     resolved = resolve_path(path)
+    if err := _check_path_allowed(resolved):
+        return err
     resolved.parent.mkdir(parents=True, exist_ok=True)
     resolved.write_text(content, encoding="utf-8")
     return f"Written: {resolved} ({len(content.splitlines())} lines)"
@@ -74,6 +118,8 @@ def file_write(path: str, content: str) -> str:
 def file_list(path: str = ".", recursive: bool = False, show_hidden: bool = False) -> str:
     """List files and directories."""
     resolved = resolve_path(path)
+    if err := _check_path_allowed(resolved):
+        return err
     if not resolved.is_dir():
         return f"Error: Not a directory: {resolved}"
 
@@ -95,6 +141,8 @@ def file_list(path: str = ".", recursive: bool = False, show_hidden: bool = Fals
 def file_delete(path: str, recursive: bool = False) -> str:
     """Delete a file or directory."""
     resolved = resolve_path(path)
+    if err := _check_path_allowed(resolved):
+        return err
     if not resolved.exists():
         return f"Error: Not found: {resolved}"
     if resolved.is_dir():
@@ -109,6 +157,10 @@ def file_delete(path: str, recursive: bool = False) -> str:
 def file_move(source: str, destination: str) -> str:
     """Move or rename a file/directory."""
     src, dst = resolve_path(source), resolve_path(destination)
+    if err := _check_path_allowed(src):
+        return err
+    if err := _check_path_allowed(dst):
+        return err
     if not src.exists():
         return f"Error: Not found: {src}"
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -119,6 +171,10 @@ def file_move(source: str, destination: str) -> str:
 def file_copy(source: str, destination: str) -> str:
     """Copy a file or directory."""
     src, dst = resolve_path(source), resolve_path(destination)
+    if err := _check_path_allowed(src):
+        return err
+    if err := _check_path_allowed(dst):
+        return err
     if not src.exists():
         return f"Error: Not found: {src}"
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -132,6 +188,8 @@ def file_copy(source: str, destination: str) -> str:
 def str_replace(path: str, old_string: str, new_string: str) -> str:
     """Replace exact string in a file. old_string must be unique."""
     resolved = resolve_path(path)
+    if err := _check_path_allowed(resolved):
+        return err
     if not resolved.is_file():
         return f"Error: Not a file: {resolved}"
     content = resolved.read_text(encoding="utf-8")
@@ -207,7 +265,11 @@ def glob_search(pattern: str, path: str = ".") -> str:
 
 async def shell_exec(command: str, timeout: int = 120, working_dir: str | None = None) -> str:
     """Execute a shell command. Returns stdout, stderr, and exit code."""
+    if err := _check_command_allowed(command):
+        return err
     cwd = resolve_path(working_dir) if working_dir else _working_dir
+    if err := _check_path_allowed(cwd):
+        return err
     if not cwd.is_dir():
         return f"Error: Working directory not found: {cwd}"
 
@@ -245,6 +307,8 @@ async def shell_exec(command: str, timeout: int = 120, working_dir: str | None =
 def cd(path: str) -> str:
     """Change working directory."""
     resolved = resolve_path(path)
+    if err := _check_path_allowed(resolved):
+        return err
     if not resolved.is_dir():
         return f"Error: Not a directory: {resolved}"
     set_working_dir(resolved)

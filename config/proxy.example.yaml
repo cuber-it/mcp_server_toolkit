@@ -6,6 +6,11 @@ port: 12200
 health_port: 12201
 management_port: 12299
 log_level: INFO
+# log_format: json          # "json" for machine-readable, default: "text"
+
+# Management API authentication (optional).
+# Without token, no auth is required (development default).
+# management_token: "${MCP_MGMT_TOKEN}"
 
 # Auto-prefix: tool names get prefixed with plugin name to avoid collisions.
 # "send_message" from plugin "mm" becomes "mm_send_message".
@@ -30,3 +35,11 @@ plugins:
   #   url: "http://localhost:12050"
   #   username: "admin"
   #   password: "secret"
+  # shell:
+  #   enabled: true
+  #   timeout: 60
+  #   allowed_paths:          # restrict filesystem access (optional)
+  #     - "/home/user/projects"
+  #   blocked_commands:        # block dangerous commands (optional)
+  #     - "sudo"
+  #     - "rm -rf /"

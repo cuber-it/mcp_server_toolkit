@@ -181,19 +181,9 @@ class PluginManager:
         return None
 
     def _remove_tool_from_mcp(self, tool_name: str) -> bool:
-        """Remove a tool from FastMCP internals. Returns True if removed."""
+        """Remove a tool from FastMCP. Returns True if removed."""
         try:
-            # FastMCP stores tools in _tool_manager._tools dict
-            tool_manager = getattr(self.mcp, "_tool_manager", None)
-            if tool_manager is None:
-                return False
-            tools_dict = getattr(tool_manager, "_tools", None)
-            if tools_dict is None:
-                return False
-            if tool_name in tools_dict:
-                del tools_dict[tool_name]
-                return True
-            return False
-        except Exception as e:
-            logger.warning("Failed to remove tool '%s' from FastMCP: %s", tool_name, e)
+            self.mcp.remove_tool(tool_name)
+            return True
+        except Exception:
             return False

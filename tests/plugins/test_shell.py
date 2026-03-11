@@ -86,6 +86,80 @@ class TestNavigation:
         assert tools.cwd() == str(tmp_path)
 
 
+class TestSecurityBoundaries:
+    def setup_method(self):
+        tools.set_security_boundaries()  # reset
+
+    def teardown_method(self):
+        tools.set_security_boundaries()  # reset
+
+    def test_allowed_paths_blocks_outside(self, tmp_path):
+        allowed = tmp_path / "safe"
+        allowed.mkdir()
+        tools.set_working_dir(allowed)
+        tools.set_security_boundaries(allowed_paths=[str(allowed)])
+        result = tools.file_read("/etc/passwd")
+        assert "Error" in result
+        assert "outside" in result
+
+    def test_allowed_paths_permits_inside(self, tmp_path):
+        allowed = tmp_path / "safe"
+        allowed.mkdir()
+        f = allowed / "ok.txt"
+        f.write_text("allowed")
+        tools.set_working_dir(allowed)
+        tools.set_security_boundaries(allowed_paths=[str(allowed)])
+        result = tools.file_read("ok.txt")
+        assert "allowed" in result
+
+    def test_blocked_commands(self, tmp_path):
+        tools.set_working_dir(tmp_path)
+        tools.set_security_boundaries(blocked_commands=["rm", "sudo"])
+        result = tools._check_command_allowed("rm -rf /")
+        assert "blocked" in result
+        result = tools._check_command_allowed("sudo reboot")
+        assert "blocked" in result
+
+    def test_blocked_commands_pipe(self, tmp_path):
+        tools.set_working_dir(tmp_path)
+        tools.set_security_boundaries(blocked_commands=["rm"])
+        result = tools._check_command_allowed("ls | rm something")
+        assert "blocked" in result
+
+    def test_unblocked_commands_pass(self, tmp_path):
+        tools.set_working_dir(tmp_path)
+        tools.set_security_boundaries(blocked_commands=["rm"])
+        result = tools._check_command_allowed("ls -la")
+        assert result is None
+
+    def test_file_delete_respects_boundary(self, tmp_path):
+        safe = tmp_path / "safe"
+        safe.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "secret.txt").touch()
+        tools.set_working_dir(safe)
+        tools.set_security_boundaries(allowed_paths=[str(safe)])
+        result = tools.file_delete(str(outside / "secret.txt"))
+        assert "Error" in result
+        assert (outside / "secret.txt").exists()
+
+    def test_cd_respects_boundary(self, tmp_path):
+        safe = tmp_path / "safe"
+        safe.mkdir()
+        tools.set_working_dir(safe)
+        tools.set_security_boundaries(allowed_paths=[str(safe)])
+        result = tools.cd("/tmp")
+        assert "Error" in result
+
+    def test_no_restrictions_by_default(self, tmp_path):
+        tools.set_security_boundaries()
+        tools.set_working_dir(tmp_path)
+        (tmp_path / "test.txt").write_text("ok")
+        result = tools.file_read("test.txt")
+        assert "ok" in result
+
+
 class TestProxyIntegration:
     def test_load_shell_via_proxy(self):
         from mcp_server_proxy.proxy import PluginManager

@@ -19,11 +19,27 @@ logger = logging.getLogger(__name__)
 # Signature: (tool_name: str, params: dict, result: str, success: bool) -> None
 _log_callback: Callable | None = None
 
+# Optional pre-call validator.
+# Signature: (tool_name: str, params: dict) -> str | None
+# Return error message to reject the call, or None to allow.
+_pre_call_validator: Callable | None = None
+
 
 def set_log_callback(callback: Callable | None) -> None:
     """Set a callback for tool call logging. Pass None to disable."""
     global _log_callback
     _log_callback = callback
+
+
+def set_pre_call_validator(validator: Callable | None) -> None:
+    """Set a validator called before each tool invocation.
+
+    Args:
+        validator: Callable(tool_name, params) -> str | None.
+            Return an error string to reject the call, None to allow.
+    """
+    global _pre_call_validator
+    _pre_call_validator = validator
 
 
 class ToolTracker:
@@ -72,11 +88,15 @@ class ToolTracker:
 
 
 def _make_logged_wrapper(func, tool_name: str):
-    """Wrap a tool function with optional logging."""
+    """Wrap a tool function with optional pre-call validation and logging."""
     if asyncio.iscoroutinefunction(func):
 
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
+            if _pre_call_validator:
+                error = _pre_call_validator(tool_name, kwargs)
+                if error:
+                    return f"Rejected: {error}"
             try:
                 result = await func(*args, **kwargs)
                 if _log_callback:
@@ -92,6 +112,10 @@ def _make_logged_wrapper(func, tool_name: str):
 
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
+            if _pre_call_validator:
+                error = _pre_call_validator(tool_name, kwargs)
+                if error:
+                    return f"Rejected: {error}"
             try:
                 result = func(*args, **kwargs)
                 if _log_callback:

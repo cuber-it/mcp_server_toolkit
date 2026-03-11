@@ -44,10 +44,12 @@ def parse_args() -> argparse.Namespace:
         p = sub.add_parser(cmd, help=f"{cmd.capitalize()} a plugin on running proxy")
         p.add_argument("plugin", help="Plugin name")
         p.add_argument("--mgmt-port", type=int, default=DEFAULT_MGMT_PORT, help="Management API port")
+        p.add_argument("--token", default=None, help="Management API Bearer token (or set MCP_MGMT_TOKEN)")
 
     # --- status ---
     st = sub.add_parser("status", help="Show proxy status")
     st.add_argument("--mgmt-port", type=int, default=DEFAULT_MGMT_PORT, help="Management API port")
+    st.add_argument("--token", default=None, help="Management API Bearer token (or set MCP_MGMT_TOKEN)")
 
     # Allow serve args on top-level (no subcommand = serve)
     _add_serve_args(parser)
@@ -61,6 +63,7 @@ def _add_serve_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--http", type=int, metavar="PORT", help="HTTP transport on given port")
     parser.add_argument("--health-port", type=int, metavar="PORT", help="Health endpoint port")
     parser.add_argument("--mgmt-port", type=int, metavar="PORT", default=DEFAULT_MGMT_PORT, help="Management API port")
+    parser.add_argument("--mgmt-token", default=None, help="Bearer token for management API (or set MCP_MGMT_TOKEN)")
     parser.add_argument(
         "--plugin-dir", "-d", type=Path, action="append", default=[],
         help="Additional plugin search directory (can be repeated)",
@@ -73,10 +76,16 @@ def _mgmt_url(port: int, path: str) -> str:
 
 def _cmd_remote(command: str, args: argparse.Namespace) -> None:
     """Send a command to the running proxy via management API."""
+    import os
     port = args.mgmt_port
+    token = getattr(args, "token", None) or os.environ.get("MCP_MGMT_TOKEN")
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
         if command == "status":
-            resp = httpx.get(_mgmt_url(port, "/proxy/status"), timeout=5)
+            resp = httpx.get(_mgmt_url(port, "/proxy/status"), headers=headers, timeout=5)
+            if resp.status_code == 401:
+                print("Error: unauthorized — provide --token or set MCP_MGMT_TOKEN", file=sys.stderr)
+                sys.exit(1)
             data = resp.json()
             print(f"Plugins: {data['total_plugins']}, Tools: {data['total_tools']}")
             for name, info in data.get("plugins", {}).items():
@@ -88,8 +97,12 @@ def _cmd_remote(command: str, args: argparse.Namespace) -> None:
             resp = httpx.post(
                 _mgmt_url(port, f"/proxy/{command}"),
                 json={"plugin": args.plugin},
+                headers=headers,
                 timeout=10,
             )
+            if resp.status_code == 401:
+                print("Error: unauthorized — provide --token or set MCP_MGMT_TOKEN", file=sys.stderr)
+                sys.exit(1)
             data = resp.json()
             if data.get("ok"):
                 tools = data.get("tools") or data.get("removed") or []
@@ -132,9 +145,15 @@ def _cmd_serve(args: argparse.Namespace) -> None:
     mgmt_port = getattr(args, "mgmt_port", DEFAULT_MGMT_PORT)
     config.setdefault("management_port", mgmt_port)
 
-    logging.basicConfig(
-        level=getattr(logging, config.get("log_level", "INFO")),
-        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    # Management token: CLI --mgmt-token > config > env (env handled in management.py)
+    cli_token = getattr(args, "mgmt_token", None)
+    if cli_token:
+        config["management_token"] = cli_token
+
+    from mcp_server_framework import setup_logging
+    setup_logging(
+        level=config.get("log_level", "INFO"),
+        json_format=config.get("log_format") == "json",
     )
 
     # Register plugin search directories
@@ -161,7 +180,8 @@ def _cmd_serve(args: argparse.Namespace) -> None:
 
     # Start management API (always, on 127.0.0.1 only)
     from .management import start_management_server
-    start_management_server(proxy, port=config["management_port"])
+    mgmt_token = config.get("management_token")
+    start_management_server(proxy, port=config["management_port"], token=mgmt_token)
 
     # Start health server if not stdio (with plugin status)
     if config.get("transport") != "stdio":

@@ -39,9 +39,10 @@ def main() -> None:
     if config.get("server_name") == "MCP Server":
         config["server_name"] = "MCP Factory"
 
-    logging.basicConfig(
-        level=getattr(logging, config.get("log_level", "INFO")),
-        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    from mcp_server_framework import setup_logging
+    setup_logging(
+        level=config.get("log_level", "INFO"),
+        json_format=config.get("log_format") == "json",
     )
 
     plugin_names = args.plugins or config.get("plugins_load", [])

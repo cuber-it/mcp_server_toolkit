@@ -21,6 +21,12 @@ def register(mcp, config: dict) -> None:
         from pathlib import Path
         tools.set_working_dir(Path(config["working_dir"]))
 
+    # Security boundaries (optional)
+    tools.set_security_boundaries(
+        allowed_paths=config.get("allowed_paths"),
+        blocked_commands=config.get("blocked_commands"),
+    )
+
     default_timeout = config.get("timeout", 120)
 
     @mcp.tool()

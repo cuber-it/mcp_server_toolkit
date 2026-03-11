@@ -93,3 +93,38 @@ class TestReloadEndpoint:
     def test_reload_not_loaded(self, client):
         resp = client.post("/proxy/reload", json={"plugin": "echo"})
         assert resp.status_code == 400
+
+
+class TestAuth:
+    """Token-based authentication on management API."""
+
+    @pytest.fixture
+    def auth_client(self, proxy):
+        app = create_management_app(proxy, token="secret-token")
+        return TestClient(app)
+
+    def test_no_token_rejected(self, auth_client):
+        resp = auth_client.get("/proxy/status")
+        assert resp.status_code == 401
+
+    def test_wrong_token_rejected(self, auth_client):
+        resp = auth_client.get("/proxy/status", headers={"Authorization": "Bearer wrong"})
+        assert resp.status_code == 401
+
+    def test_correct_token_accepted(self, auth_client):
+        resp = auth_client.get("/proxy/status", headers={"Authorization": "Bearer secret-token"})
+        assert resp.status_code == 200
+
+    def test_post_with_token(self, auth_client):
+        resp = auth_client.post(
+            "/proxy/load",
+            json={"plugin": "echo"},
+            headers={"Authorization": "Bearer secret-token"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["ok"]
+
+    def test_no_auth_when_no_token_configured(self, client):
+        """Without token config, all requests pass through."""
+        resp = client.get("/proxy/status")
+        assert resp.status_code == 200

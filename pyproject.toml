@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-server-toolkit"
-version = "0.1.0"
+version = "0.9.0"
 description = "MCP Server Toolkit — Framework, Factory and Proxy for building MCP servers"
 readme = "README.md"
 license = "MIT"
@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 authors = [{name = "cuber-it"}]
 keywords = ["mcp", "model-context-protocol", "framework", "factory", "proxy", "llm", "ai", "plugins"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -37,7 +37,7 @@ dev = [
 
 [project.scripts]
 mcp-factory = "mcp_server_factory.commands:main"
-# mcp-proxy = "mcp_server_proxy.commands:main"  # TODO: Sprint 2
+mcp-proxy = "mcp_server_proxy.commands:main"
 
 [project.urls]
 Homepage = "https://github.com/cuber-it/mcp_server_toolkit"
