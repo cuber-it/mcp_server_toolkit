@@ -102,8 +102,23 @@ def _cmd_remote(command: str, args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _is_proxy_running(port: int) -> bool:
+    """Check if a proxy management API is already responding."""
+    try:
+        resp = httpx.get(_mgmt_url(port, "/proxy/status"), timeout=1)
+        return resp.status_code == 200
+    except Exception:
+        return False
+
+
 def _cmd_serve(args: argparse.Namespace) -> None:
     """Start the proxy server."""
+    mgmt_port = getattr(args, "mgmt_port", DEFAULT_MGMT_PORT)
+    if _is_proxy_running(mgmt_port):
+        print(f"Proxy already running on management port {mgmt_port}.", file=sys.stderr)
+        print("Use 'mcp-proxy status' to check, or choose a different --mgmt-port.", file=sys.stderr)
+        sys.exit(1)
+
     config = load_config(getattr(args, "config", None))
 
     if getattr(args, "http", None):
@@ -148,11 +163,22 @@ def _cmd_serve(args: argparse.Namespace) -> None:
     from .management import start_management_server
     start_management_server(proxy, port=config["management_port"])
 
-    # Start health server if not stdio
+    # Start health server if not stdio (with plugin status)
     if config.get("transport") != "stdio":
+        def _readiness_check():
+            if not proxy.plugins and autoload:
+                raise RuntimeError(f"No plugins loaded (expected: {autoload})")
+
+        def _registry_setup(app):
+            @app.get("/health/plugins")
+            async def health_plugins():
+                return proxy.list_plugins()
+
         start_health_server(
             port=config["health_port"],
             title=f"{config['server_name']} Health",
+            readiness_check=_readiness_check,
+            registry_setup=_registry_setup,
         )
 
     # Graceful shutdown
