@@ -26,8 +26,12 @@ def create_server(config: dict[str, Any]) -> FastMCP:
     name = config.get("server_name", "MCP Server")
     instructions = config.get("instructions", "")
 
+    host = config.get("host", "127.0.0.1")
+    port = config.get("port", 8000)
+
     mcp = FastMCP(
         name, instructions=instructions,
+        host=host, port=port,
     )
     logger.info("MCP Server '%s' created", name)
     return mcp
@@ -48,19 +52,15 @@ def run_server(
             config does not come from load_config().
     """
     transport = config["transport"]
-    host = config["host"]
-    port = config["port"]
 
     if transport == "stdio":
         logger.info("Starting %s (stdio)...", mcp.name)
         mcp.run(transport="stdio")
     else:
+        host = config["host"]
+        port = config["port"]
         logger.info(
             "Starting %s (HTTP on %s:%d)...",
             mcp.name, host, port,
         )
-        mcp.run(
-            transport="streamable-http",
-            host=host,
-            port=port,
-        )
+        mcp.run(transport="streamable-http")

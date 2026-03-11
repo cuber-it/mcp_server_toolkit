@@ -52,8 +52,11 @@ def load_module(name: str, config: dict[str, Any]) -> ModuleType | None:
         if plugin_file.exists():
             return _import_file(plugin_file, f"plugins.{name}")
 
-    # 2. Local package
+    # 2. Local package (__init__.py or register.py)
     for plugin_dir in _plugin_dirs:
+        init_file = plugin_dir / name / "__init__.py"
+        if init_file.exists():
+            return _import_file(init_file, f"plugins.{name}")
         register_file = plugin_dir / name / "register.py"
         if register_file.exists():
             return _import_file(register_file, f"plugins.{name}.register")
