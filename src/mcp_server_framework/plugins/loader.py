@@ -106,7 +106,24 @@ def _try_import(module_path: str) -> ModuleType | None:
 
 def _import_file(file_path: Path, module_name: str) -> ModuleType | None:
     try:
-        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        # Ensure parent directory is in sys.path for relative imports
+        parent_dir = str(file_path.parent.parent)
+        if parent_dir not in sys.path:
+            sys.path.insert(0, parent_dir)
+
+        # For packages (e.g. plugins.shell), register parent module stub
+        if "." in module_name:
+            parent_name = module_name.rsplit(".", 1)[0]
+            if parent_name not in sys.modules:
+                import types
+                parent_mod = types.ModuleType(parent_name)
+                parent_mod.__path__ = [str(file_path.parent.parent / parent_name)]
+                sys.modules[parent_name] = parent_mod
+
+        spec = importlib.util.spec_from_file_location(
+            module_name, file_path,
+            submodule_search_locations=[str(file_path.parent)] if file_path.name == "__init__.py" else None,
+        )
         if spec is None or spec.loader is None:
             return None
         module = importlib.util.module_from_spec(spec)
