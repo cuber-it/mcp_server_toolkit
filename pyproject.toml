@@ -9,7 +9,7 @@ description = "MCP Server Toolkit — Framework, Factory and Proxy for building 
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-authors = [{name = "cuber-it"}]
+authors = [{name = "cuber IT service", email = "info@uc-it.de"}]
 keywords = ["mcp", "model-context-protocol", "framework", "factory", "proxy", "llm", "ai", "plugins"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -40,7 +40,7 @@ mcp-factory = "mcp_server_factory.commands:main"
 mcp-proxy = "mcp_server_proxy.commands:main"
 
 [project.urls]
-Homepage = "https://github.com/cuber-it/mcp_server_toolkit"
+Homepage = "https://www.uc-it.de"
 Repository = "https://github.com/cuber-it/mcp_server_toolkit"
 Issues = "https://github.com/cuber-it/mcp_server_toolkit/issues"
 
