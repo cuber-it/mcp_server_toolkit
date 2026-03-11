@@ -1,0 +1,13 @@
+[Unit]
+Description=MCP Server Proxy
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/Workspace/mcp_server_toolkit/.venv/bin/mcp-proxy serve --config %h/Workspace/mcp_server_toolkit/config/proxy.yaml --http 12200
+WorkingDirectory=%h/Workspace/mcp_server_toolkit
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

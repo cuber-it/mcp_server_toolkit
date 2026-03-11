@@ -1,0 +1,20 @@
+# MCP Server Proxy — Example Configuration
+server_name: "MCP Proxy"
+transport: http
+host: "0.0.0.0"
+port: 12200
+health_port: 12201
+management_port: 12299
+log_level: INFO
+
+# Plugins loaded at startup
+autoload:
+  - echo
+
+plugins:
+  echo:
+    enabled: true
+  # mattermost:
+  #   enabled: true
+  #   url: "https://mm.example.com"
+  #   token: "${MM_TOKEN}"
