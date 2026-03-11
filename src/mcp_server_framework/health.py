@@ -121,15 +121,25 @@ def start_health_server(
         registry_setup(health_app)
 
     def _run():
+        import socket
+        # Pre-check port availability to avoid noisy uvicorn error logs
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            uvicorn.run(
-                health_app,
-                host="0.0.0.0",
-                port=port,
-                log_level="warning",
+            sock.bind(("0.0.0.0", port))
+            sock.close()
+        except OSError:
+            sock.close()
+            logger.warning(
+                "Health server port %d already in use, skipping. "
+                "Use --health-port to choose a different port.", port,
             )
-        except OSError as e:
-            logger.warning("Health server failed to start on port %d: %s", port, e)
+            return
+        uvicorn.run(
+            health_app,
+            host="0.0.0.0",
+            port=port,
+            log_level="warning",
+        )
 
     t = threading.Thread(
         target=_run, daemon=True, name="health-server",
