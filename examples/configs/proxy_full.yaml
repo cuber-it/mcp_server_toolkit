@@ -1,0 +1,33 @@
+# Proxy with multiple plugins — HTTP transport
+# Loads echo + shell at startup, mattermost/wekan available for runtime loading
+server_name: "Full Proxy"
+transport: http
+host: "127.0.0.1"
+port: 12200
+health_port: 12201
+management_port: 12299
+log_level: INFO
+
+autoload:
+  - echo
+  - shell
+
+plugins:
+  echo:
+    enabled: true
+  greet:
+    enabled: true
+  shell:
+    enabled: true
+    timeout: 60
+  # Uncomment and configure to use:
+  # mattermost:
+  #   enabled: true
+  #   url: "https://mm.example.com"
+  #   token: "your-token-here"
+  # wekan:
+  #   enabled: true
+  #   url: "http://localhost:12050"
+  #   username: "admin"
+  #   password: "secret"
+  #   default_board: "board-id-here"

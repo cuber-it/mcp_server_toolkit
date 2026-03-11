@@ -21,6 +21,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", "-c", type=Path, default=None, help="YAML config file")
     parser.add_argument("--http", type=int, metavar="PORT", help="HTTP transport on given port")
     parser.add_argument("--health-port", type=int, metavar="PORT", help="Health endpoint port")
+    parser.add_argument(
+        "--plugin-dir", "-d", type=Path, action="append", default=[],
+        help="Additional plugin search directory (can be repeated)",
+    )
     return parser.parse_args()
 
 
@@ -50,6 +54,8 @@ def main() -> None:
 
     # Set up plugin infrastructure
     add_plugin_dir(Path(__file__).parent.parent.parent / "plugins")
+    for plugin_dir in args.plugin_dir:
+        add_plugin_dir(plugin_dir.resolve())
     from .plugins.logging import log_settings
     set_log_callback(log_settings.log_call)
 

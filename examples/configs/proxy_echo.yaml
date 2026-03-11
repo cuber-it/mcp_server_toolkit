@@ -1,0 +1,18 @@
+# Proxy with echo plugin — HTTP transport
+# Used by: run_proxy_http.sh
+server_name: "Echo Proxy"
+transport: http
+host: "127.0.0.1"
+port: 12200
+health_port: 12201
+management_port: 12299
+log_level: INFO
+
+autoload:
+  - echo
+
+plugins:
+  echo:
+    enabled: true
+  greet:
+    enabled: true

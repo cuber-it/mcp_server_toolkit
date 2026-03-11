@@ -1,0 +1,9 @@
+# Factory with echo plugin — stdio transport
+# Used by: run_factory_echo.sh
+server_name: "Echo Factory"
+transport: stdio
+log_level: INFO
+
+plugins:
+  echo:
+    enabled: true
