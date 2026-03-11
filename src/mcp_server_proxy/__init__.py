@@ -5,3 +5,7 @@ Uses the same register(mcp, config) interface as the Factory.
 """
 
 __version__ = "0.1.0"
+
+from .proxy import PluginManager
+
+__all__ = ["PluginManager"]
