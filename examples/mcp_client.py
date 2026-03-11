@@ -102,7 +102,8 @@ async def repl(session: ClientSession, proto: ProtocolLogger) -> None:
             elif cmd == "info":
                 await _cmd_info(session)
             else:
-                print(f"Unknown command: {cmd}. Type 'help' for available commands.")
+                # Try as tool call: "echo_upper hello" → call echo_upper with arg
+                await _cmd_call(session, line, proto)
         except Exception as e:
             print(f"Error: {e}")
 
@@ -111,7 +112,9 @@ def _print_help() -> None:
     print("""
 Commands:
   tools              List all available tools with descriptions
-  call <name>        Call a tool (prompts for JSON arguments)
+  call <name>        Call a tool (prompts for arguments)
+  <name> <arg>       Shorthand: call tool with single argument
+  <name> {"k":"v"}   Shorthand: call tool with JSON arguments
   resources          List available resources
   prompts            List available prompts
   info               Show server info and capabilities
@@ -145,10 +148,15 @@ async def _cmd_tools(session: ClientSession, proto: ProtocolLogger) -> None:
     print(f"\n  Total: {len(result.tools)} tools")
 
 
-async def _cmd_call(session: ClientSession, tool_name: str, proto: ProtocolLogger) -> None:
-    if not tool_name:
-        print("Usage: call <tool_name>")
+async def _cmd_call(session: ClientSession, input_str: str, proto: ProtocolLogger) -> None:
+    if not input_str:
+        print("Usage: call <tool_name> [arg1=val1 arg2=val2 | JSON]")
         return
+
+    # Parse: "tool_name arg" or just "tool_name"
+    parts = input_str.split(None, 1)
+    tool_name = parts[0].strip('"').strip("'")
+    inline_arg = parts[1].strip() if len(parts) > 1 else ""
 
     # Get tool schema for argument prompting
     tools_result = await session.list_tools()
@@ -164,7 +172,19 @@ async def _cmd_call(session: ClientSession, tool_name: str, proto: ProtocolLogge
     properties = schema.get("properties", {})
     required = set(schema.get("required", []))
 
-    if properties:
+    if inline_arg and properties:
+        # Try JSON first
+        try:
+            arguments = json.loads(inline_arg)
+        except json.JSONDecodeError:
+            # Single required param shorthand: "echo hello" → {"message": "hello"}
+            req_params = [p for p in properties if p in required]
+            if len(req_params) == 1:
+                arguments[req_params[0]] = inline_arg.strip('"').strip("'")
+            else:
+                print(f"Could not parse arguments. Use JSON or interactive mode: call {tool_name}")
+                return
+    elif properties and not inline_arg:
         print(f"Arguments for '{tool_name}':")
         for pname, pinfo in properties.items():
             ptype = pinfo.get("type", "string")
@@ -175,9 +195,7 @@ async def _cmd_call(session: ClientSession, tool_name: str, proto: ProtocolLogge
                 prompt_str += f" default={default}"
             prompt_str += ": "
 
-            value = await asyncio.get_event_loop().run_in_executor(
-                None, lambda p=prompt_str: input(p)
-            )
+            value = await anyio.to_thread.run_sync(lambda p=prompt_str: input(p))
 
             if value == "" and pname not in required:
                 if default is not None:
