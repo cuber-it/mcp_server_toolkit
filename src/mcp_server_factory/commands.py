@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 
 from mcp_server_framework import load_config, create_server, run_server, start_health_server
+from mcp_server_framework.plugins.loader import add_plugin_dir
+from mcp_server_framework.plugins.tracker import set_log_callback
 from .factory import Factory
 
 logger = logging.getLogger(__name__)
@@ -45,6 +47,11 @@ def main() -> None:
     if not plugin_names:
         print("Error: No plugins specified (use --plugins or config)")
         sys.exit(1)
+
+    # Set up plugin infrastructure
+    add_plugin_dir(Path(__file__).parent.parent.parent / "plugins")
+    from .plugins.logging import log_settings
+    set_log_callback(log_settings.log_call)
 
     mcp = create_server(config)
     factory = Factory(mcp, config)

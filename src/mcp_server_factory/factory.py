@@ -3,28 +3,14 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from datetime import datetime
 from types import ModuleType
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
-
-from .loader import load_module, find_register
-from .tracker import ToolTracker
+from mcp_server_framework.plugins import LoadedPlugin, load_module, find_register, ToolTracker
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class LoadedPlugin:
-    """Record of a loaded plugin."""
-    name: str
-    module: ModuleType
-    tools: list[str]
-    loaded_at: datetime
-    config: dict
-    internal: bool = False
 
 
 class Factory:

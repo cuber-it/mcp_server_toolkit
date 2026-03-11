@@ -43,5 +43,8 @@ Thumbs.db
 # Logs
 *.log
 
+# Claude Code
+CLAUDE.md
+
 # Config overrides (lokale Anpassungen)
 config/*.local.yaml
