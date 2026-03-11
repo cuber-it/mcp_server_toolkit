@@ -147,7 +147,7 @@ def start_health_server(
     )
     t.start()
     print(
-        f"Health server on port {port}",
+        f"Health server (REST) on port {port}",
         file=sys.stderr,
     )
     return t

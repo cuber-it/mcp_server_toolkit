@@ -60,7 +60,7 @@ def run_server(
         host = config["host"]
         port = config["port"]
         logger.info(
-            "Starting %s (HTTP on %s:%d)...",
+            "Starting %s (streamable-http on %s:%d)...",
             mcp.name, host, port,
         )
         mcp.run(transport="streamable-http")

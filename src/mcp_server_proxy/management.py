@@ -125,5 +125,5 @@ def start_management_server(
     t = threading.Thread(target=_run, daemon=True, name="management-api")
     t.start()
     auth_info = " (auth enabled)" if token else " (no auth)"
-    print(f"Management API on port {port}{auth_info}", file=sys.stderr)
+    print(f"Management API (REST) on port {port}{auth_info}", file=sys.stderr)
     return t
