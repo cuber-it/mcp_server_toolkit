@@ -236,6 +236,16 @@ python examples/mcp_client.py http http://localhost:12200/mcp
 
 REPL commands: `tools`, `call <name>`, `resources`, `prompts`, `info`, `quit`
 
+Tool shorthand — call tools directly by name:
+
+```
+mcp> echo hello              # single-arg shorthand
+mcp> echo_upper world
+mcp> greet Claude
+mcp> proxy__status           # no-arg tools work too
+mcp> call echo               # interactive mode (prompts for args)
+```
+
 ## Examples
 
 Ready-to-run scripts in `examples/`:

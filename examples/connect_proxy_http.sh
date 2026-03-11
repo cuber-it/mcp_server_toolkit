@@ -11,6 +11,7 @@ PORT="${1:-12200}"
 URL="http://127.0.0.1:${PORT}/mcp"
 
 echo "=== MCP Client → $URL ==="
+echo "Try: tools, echo hello, proxy__status, help, quit"
 echo ""
 
 exec "$VENV/python" "$SCRIPT_DIR/mcp_client.py" -v http "$URL"

@@ -8,10 +8,14 @@ Feature-complete release.
 - YAML config with environment variable expansion (`${VAR}`)
 - Dual transport: stdio and streamable HTTP
 - Health server with readiness checks (FastAPI, separate port)
+- Health server port pre-check with diagnostic hint on conflict
 - Plugin infrastructure: `register(mcp, config)` interface
+- Plugin loader supports both `__init__.py` and `register.py` packages
+- Plugin loader registers parent package for relative imports
 - ToolTracker with auto-prefix and logging callback
 - Pre-call validation hook (`set_pre_call_validator`)
 - Configurable logging: text or JSON format (`setup_logging`)
+- Protocol labels in startup messages (streamable-http, REST)
 
 ### Factory
 - Static plugin loading at startup
@@ -40,6 +44,8 @@ Feature-complete release.
 
 ### Examples
 - Interactive MCP test client (stdio + HTTP, REPL with tool discovery)
+  - Tool shorthand: call tools directly by name (`echo hello` instead of `call echo`)
+  - Single-arg shorthand for tools with one required parameter
 - Launch scripts for Factory and Proxy scenarios
 - Ready-to-use YAML configs
 
