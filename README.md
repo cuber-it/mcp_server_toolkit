@@ -37,12 +37,15 @@ mcp-factory --plugins echo --http 12201 --plugin-dir ./plugins
 # Start proxy with echo plugin on HTTP
 mcp-proxy serve --autoload echo --http 12200 --plugin-dir ./plugins
 
-# Manage plugins at runtime (separate terminal)
+# Manage plugins at runtime via CLI
 mcp-proxy status
 mcp-proxy load shell
 mcp-proxy unload echo
 mcp-proxy reload shell
 ```
+
+Plugins can also be managed via MCP tools (`proxy__load`, `proxy__unload`, `proxy__reload`)
+or the REST management API — from any connected client.
 
 ### Framework — Build a standalone server
 
@@ -132,6 +135,23 @@ POST /proxy/reload          {"plugin": "name"}
 GET  /proxy/commands         Registered management extensions
 POST /proxy/command/{name}   Run a management extension
 ```
+
+### MCP Management Tools
+
+The proxy registers management tools that any connected MCP client can call:
+
+| Tool | Description |
+|------|-------------|
+| `proxy__load` | Load a plugin at runtime |
+| `proxy__unload` | Unload a plugin |
+| `proxy__reload` | Reload a plugin (picks up code changes) |
+| `proxy__status` | Show loaded plugins, tools, resources, prompts |
+| `proxy__list` | List available (not yet loaded) plugins |
+| `proxy__tools` | List all loaded tools (supports `dynamic_only` filter) |
+| `proxy__run` | Call a dynamically loaded tool by name (requires `dynamic_dispatch: true`) |
+
+The server sends `tools/list_changed`, `resources/list_changed`, and `prompts/list_changed`
+notifications when plugins are loaded or unloaded.
 
 ### Management API Authentication
 
@@ -434,7 +454,30 @@ blocked_commands:
 The proxy loads these automatically. If no plugin config file exists, it falls
 back to the `plugins:` section in the proxy config.
 
-Example configs in `config/` and `examples/configs/`.
+Example configs in `config/`:
+
+| Config | Use case |
+|--------|----------|
+| `proxy.example.yaml` | HTTP proxy with all options documented |
+| `config-stdio.yaml` | stdio for Claude Code / Claude Desktop |
+| `framework.example.yaml` | Standalone framework server |
+| `factory.example.yaml` | Factory with static plugins |
+
+### Claude Code / Claude Desktop
+
+Use the proxy as a stdio MCP server — no OAuth, no ports:
+
+```json
+{
+  "mcpServers": {
+    "proxy": {
+      "command": "/path/to/mcp_server_toolkit/.venv/bin/mcp-proxy",
+      "args": ["serve", "--config", "config/config-stdio.yaml",
+               "--plugin-dir", "./plugins"]
+    }
+  }
+}
+```
 
 ## Tests
 

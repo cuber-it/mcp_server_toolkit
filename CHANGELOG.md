@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1 (2026-03-12)
+
+### Config
+- stdio config for Claude Code / Claude Desktop integration (`config/config-stdio.yaml`)
+
 ## 1.2.0 (2026-03-12)
 
 ### Proxy

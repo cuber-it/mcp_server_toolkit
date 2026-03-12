@@ -4,7 +4,7 @@ Everything is a plugin. External tools and internal management
 commands use the same interface: register(mcp, config).
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 
 from .factory import Factory
 
