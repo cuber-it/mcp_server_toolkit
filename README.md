@@ -1,6 +1,8 @@
 # MCP Server Framework
 
 A Python framework for building MCP (Model Context Protocol) servers.
+Implements MCP 1.26 core protocol (tools, resources, prompts, notifications).
+Optional features (completion, subscriptions, progress, cancellation) are not yet exposed through the plugin API.
 
 > **PyPI:** `pip install mcp-server-framework` — repo name is `mcp_server_toolkit` for historical reasons.
 
@@ -184,6 +186,39 @@ GET /health/ready        Readiness check (verifies plugins loaded)
 GET /health/plugins      Current plugin and tool inventory
 ```
 
+### Dynamic Dispatch
+
+MCP clients cache the tool list and most don't handle `tools/list_changed` notifications.
+This means tools loaded at runtime are invisible to the client. Dynamic dispatch solves this
+with a single gateway tool `proxy__run` that can call any dynamically loaded tool by name.
+
+```yaml
+# proxy.yaml
+dynamic_dispatch: true    # default: false
+autoload:
+  - echo                  # static — visible in tools/list, callable directly
+```
+
+```
+# At runtime: load a plugin dynamically
+proxy__load shell         → "Loaded 'shell': 33 tools. Call them via proxy__run(...)"
+
+# Call dynamic tools via the gateway
+proxy__run(tool="shell_exec", arguments={"command": "ls"})
+
+# List only dynamic tools
+proxy__tools(dynamic_only=true)
+```
+
+**Security rule:** Tools loaded at startup (autoload) are **not** callable via `proxy__run` —
+they are visible in `tools/list` and the client can set permissions on them directly.
+`proxy__run` only dispatches to tools loaded after startup.
+
+> **Note:** Dynamic dispatch is a workaround for the current MCP client ecosystem.
+> Most clients (Claude.ai, VS Code, LibreChat) do not handle `tools/list_changed`
+> notifications, so runtime-loaded tools remain invisible to them. If clients start
+> supporting dynamic tool discovery natively, this feature may be deprecated.
+
 ### Management Command Extensions
 
 Extend the proxy with custom management commands:
@@ -347,6 +382,7 @@ management_port: 12299
 log_level: INFO
 log_format: text           # text | json
 auto_prefix: true
+dynamic_dispatch: false    # true = enable proxy__run for runtime-loaded tools
 
 # OAuth (enabled by default for HTTP, set false to disable)
 oauth_server_url: "https://auth.example.com"
@@ -403,7 +439,7 @@ Example configs in `config/` and `examples/configs/`.
 ## Tests
 
 ```bash
-pytest           # 166 tests
+pytest           # 183 tests
 pytest -v        # verbose
 pytest tests/proxy/   # proxy only
 ```
@@ -428,7 +464,7 @@ examples/
 └── *.sh                      # Launch scripts
 scripts/
 └── new-plugin.sh             # Plugin scaffold generator
-tests/                        # 166 tests (framework, factory, proxy, plugins)
+tests/                        # 183 tests (framework, factory, proxy, plugins)
 config/                       # Example configs + systemd service
 ```
 

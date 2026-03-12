@@ -19,3 +19,4 @@ class LoadedPlugin:
     internal: bool = False
     resources: list[str] = field(default_factory=list)
     prompts: list[str] = field(default_factory=list)
+    startup: bool = False

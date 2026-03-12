@@ -45,6 +45,23 @@ class PluginManager:
         self._all_resources: set[str] = set()
         self._all_prompts: set[str] = set()
         self._commands: dict[str, Callable] = {}
+        self._startup_complete: bool = False
+        self._startup_tools: set[str] = set()
+
+    def mark_startup_done(self) -> None:
+        """Mark the autoload phase as complete. Tools loaded after this are dynamic."""
+        self._startup_tools = set(self._all_tools)
+        self._startup_complete = True
+        logger.info("Startup complete: %d tools marked as static", len(self._startup_tools))
+
+    @property
+    def dynamic_tools(self) -> list[str]:
+        """Tools loaded after startup (available via proxy__run)."""
+        return sorted(self._all_tools - self._startup_tools)
+
+    @property
+    def dynamic_dispatch_enabled(self) -> bool:
+        return self.config.get("dynamic_dispatch", False)
 
     def register_command(self, name: str, handler: Callable) -> None:
         """Register a management command extension.
@@ -137,6 +154,7 @@ class PluginManager:
             name=name, module=module, tools=new_tools,
             resources=new_resources, prompts=new_prompts,
             loaded_at=datetime.now(), config=pcfg,
+            startup=not self._startup_complete,
         )
         logger.info("Plugin '%s' loaded: %d tools, %d resources, %d prompts",
                      name, len(new_tools), len(new_resources), len(new_prompts))

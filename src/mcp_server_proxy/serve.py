@@ -56,6 +56,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
         if not result.ok:
             logger.error("Autoload '%s' failed: %s", name, result.error)
 
+    proxy.mark_startup_done()
     logger.info("Proxy ready: %d plugin(s), %d tools", len(proxy.plugins), len(proxy._all_tools))
 
     # Management API (always on localhost)

@@ -1,11 +1,26 @@
 # Changelog
 
-## 1.1.1 (2026-03-12)
+## 1.2.0 (2026-03-12)
+
+### Proxy
+- **Dynamic Dispatch**: `proxy__run` gateway tool for calling runtime-loaded tools
+  - Workaround for MCP clients not handling `tools/list_changed` — may be deprecated when clients catch up
+  - Only tools loaded after startup are dispatchable (security: static tools are excluded)
+  - Enabled via `dynamic_dispatch: true` in config (default: off)
+  - `proxy__load` includes usage hint when dynamic dispatch is active
+- `proxy__tools(dynamic_only=true)` filter for listing only dynamically loaded tools
+- `LoadedPlugin.startup` flag distinguishes static (autoload) vs dynamic (runtime) plugins
+- Startup tracking: `PluginManager.mark_startup_done()` freezes the static tool set
 
 ### Docs
 - README: PyPI install instructions, plugin-config separation, resources/prompts in plugin interface
+- README: dynamic dispatch documentation
 - proxy.example.yaml: credentials removed, points to plugin config files
-- Test count updated to 166
+- Clarified MCP 1.26 core protocol conformance scope
+
+### Tests
+- 183 tests (was 166), all passing
+- 17 new tests for dynamic dispatch (startup tracking, proxy__run, proxy__tools filter, load hints)
 
 ## 1.1.0 (2026-03-12)
 

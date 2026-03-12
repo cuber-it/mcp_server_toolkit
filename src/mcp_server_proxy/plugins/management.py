@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+
 from mcp import types
 from mcp.server.fastmcp import Context
 from mcp_server_framework.plugins import list_available_plugins
+
+logger = logging.getLogger(__name__)
 
 
 def _get_request_id(ctx: Context):
@@ -47,13 +51,48 @@ def register(mcp, config: dict) -> None:
     if proxy is None:
         return
 
+    if proxy.dynamic_dispatch_enabled:
+        @mcp.tool()
+        async def proxy__run(tool: str, arguments: dict | None = None) -> str:
+            """Run a dynamically loaded tool by name.
+
+            Only tools loaded at runtime (after startup) are available.
+            Use proxy__tools(dynamic_only=true) to see available dynamic tools.
+            """
+            dynamic = proxy.dynamic_tools
+            if tool not in dynamic:
+                if tool in proxy._startup_tools:
+                    return f"Error: '{tool}' is a static tool — call it directly, not via proxy__run."
+                return f"Error: '{tool}' not found. Available dynamic tools: {', '.join(dynamic) or '(none)'}"
+            try:
+                result = await proxy.mcp.call_tool(tool, arguments or {})
+                # call_tool returns (content_blocks, raw_result) tuple
+                blocks = result[0] if isinstance(result, tuple) else result
+                parts = []
+                for block in blocks:
+                    if hasattr(block, "text"):
+                        parts.append(block.text)
+                    else:
+                        parts.append(str(block))
+                return "\n".join(parts) or "(empty result)"
+            except Exception as e:
+                logger.error("proxy__run '%s' failed: %s", tool, e)
+                return f"Error calling '{tool}': {e}"
+
     @mcp.tool()
     async def proxy__load(plugin: str, ctx: Context) -> str:
         """Load a plugin by name. Makes its tools available immediately."""
         result = proxy.load(plugin)
         if result.ok:
             await _send_list_changed_notifications(ctx, proxy, plugin)
-            return f"Loaded '{plugin}': {', '.join(result.tools or [])}"
+            msg = f"Loaded '{plugin}': {', '.join(result.tools or [])}"
+            if proxy.dynamic_dispatch_enabled and proxy._startup_complete:
+                msg += (
+                    f"\n\nThese tools are dynamically loaded. "
+                    f"Call them via proxy__run(tool='<name>', arguments={{...}}). "
+                    f"Example: proxy__run(tool='{(result.tools or ['tool_name'])[0]}')"
+                )
+            return msg
         return f"Error: {result.error}"
 
     @mcp.tool()
@@ -127,8 +166,13 @@ def register(mcp, config: dict) -> None:
         return "\n".join(lines)
 
     @mcp.tool()
-    def proxy__tools() -> str:
-        """List all loaded tools across all plugins."""
+    def proxy__tools(dynamic_only: bool = False) -> str:
+        """List loaded tools. Set dynamic_only=true to see only dynamically loaded tools (usable via proxy__run)."""
+        if dynamic_only:
+            tools = proxy.dynamic_tools
+            if not tools:
+                return "(no dynamic tools loaded)"
+            return "\n".join(tools)
         info = proxy.list_plugins()
         all_tools = []
         for p in info["plugins"].values():
