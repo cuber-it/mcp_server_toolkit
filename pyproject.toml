@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-server-framework"
-version = "1.1.0"
+version = "1.1.1"
 description = "MCP Server Toolkit — Framework, Factory and Proxy for building MCP servers"
 readme = "README.md"
 license = "MIT"

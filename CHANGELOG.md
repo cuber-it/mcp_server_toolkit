@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 (2026-03-12)
+
+### Docs
+- README: PyPI install instructions, plugin-config separation, resources/prompts in plugin interface
+- proxy.example.yaml: credentials removed, points to plugin config files
+- Test count updated to 166
+
 ## 1.1.0 (2026-03-12)
 
 ### Framework
