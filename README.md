@@ -10,8 +10,13 @@ Three packages, one ecosystem:
 | **mcp_server_factory** | Static plugin loading at startup (CLI tool) |
 | **mcp_server_proxy** | Dynamic plugin loading at runtime (daemon with management API) |
 
-## Quick Start
+## Installation
 
+```bash
+pip install mcp-server-framework
+```
+
+For development:
 ```bash
 pip install -e ".[dev]"
 ```
@@ -61,9 +66,19 @@ def register(mcp, config: dict) -> None:
     def my_tool(param: str) -> str:
         """Tool description for the LLM."""
         return do_something(param)
+
+    @mcp.resource("myns://status")
+    def my_resource() -> str:
+        return "OK"
+
+    @mcp.prompt()
+    def my_prompt(text: str) -> str:
+        return f"Analyze: {text}"
 ```
 
+Tools, resources, and prompts are all tracked and checked for collisions.
 Works with Factory and Proxy without changes.
+See `plugins/demo_full.py` for a complete example.
 
 ### Create a New Plugin
 
@@ -96,6 +111,7 @@ without MCP dependencies.
 | `mattermost` | 5 | Mattermost REST API (send, channels, posts, search, user) |
 | `wekan` | 18 | Wekan Kanban REST API (boards, cards, checklists, labels) |
 | `shell` | 33 | Filesystem, editor, search, shell, git, systemd, HTTP, packages, diagnostics |
+| `demo_full` | 1 | Reference: tool + resource + prompt registration |
 
 ## Proxy Features
 
@@ -217,19 +233,18 @@ oauth_enabled: false
 
 ### Shell Plugin Boundaries
 
-The shell plugin supports configurable security boundaries:
+The shell plugin supports configurable security boundaries via its
+plugin config file:
 
 ```yaml
-plugins:
-  shell:
-    enabled: true
-    allowed_paths:              # restrict filesystem access
-      - "/home/user/projects"
-      - "/tmp"
-    blocked_commands:            # block dangerous commands
-      - "sudo"
-      - "rm -rf /"
-      - "chmod"
+# ~/mcp_plugins/shell/config.yaml
+allowed_paths:              # restrict filesystem access
+  - "/home/user/projects"
+  - "/tmp"
+blocked_commands:            # block dangerous commands
+  - "sudo"
+  - "rm -rf /"
+  - "chmod"
 ```
 
 Without boundaries configured, the shell plugin has unrestricted access
@@ -348,23 +363,45 @@ plugins:
     enabled: true
   shell:
     enabled: true
-    timeout: 60
-    allowed_paths:
-      - "/home/user/projects"
-    blocked_commands:
-      - "sudo"
+    prefix: false           # no auto-prefix for shell tools
   mattermost:
     enabled: true
-    url: "https://mm.example.com"
-    token: "${MM_TOKEN}"
+    prefix: "mm"            # custom prefix
 ```
+
+### Plugin-Specific Configuration
+
+Credentials and plugin-specific settings go into a separate config file
+per plugin, **not** into the proxy config:
+
+```
+~/mcp_plugins/{plugin_name}/config.yaml
+```
+
+```yaml
+# ~/mcp_plugins/mattermost/config.yaml
+url: "https://mm.example.com"
+token: "${MM_TOKEN}"
+```
+
+```yaml
+# ~/mcp_plugins/shell/config.yaml
+timeout: 60
+allowed_paths:
+  - "/home/user/projects"
+blocked_commands:
+  - "sudo"
+```
+
+The proxy loads these automatically. If no plugin config file exists, it falls
+back to the `plugins:` section in the proxy config.
 
 Example configs in `config/` and `examples/configs/`.
 
 ## Tests
 
 ```bash
-pytest           # 159 tests
+pytest           # 166 tests
 pytest -v        # verbose
 pytest tests/proxy/   # proxy only
 ```
@@ -379,6 +416,7 @@ src/
 plugins/
 ├── echo.py                   # Minimal example
 ├── greet.py                  # Minimal example
+├── demo_full.py              # Reference: tool + resource + prompt
 ├── mattermost/               # REST adapter (Mattermost)
 ├── wekan/                    # REST adapter (Wekan Kanban)
 └── shell/                    # 33 workstation tools (filesystem, editor, search, shell, git, system, HTTP, packages)
@@ -388,7 +426,7 @@ examples/
 └── *.sh                      # Launch scripts
 scripts/
 └── new-plugin.sh             # Plugin scaffold generator
-tests/                        # 159 tests (framework, factory, proxy, plugins)
+tests/                        # 166 tests (framework, factory, proxy, plugins)
 config/                       # Example configs + systemd service
 ```
 

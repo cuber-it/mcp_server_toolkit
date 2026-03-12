@@ -32,19 +32,13 @@ plugins:
     enabled: true
   # mattermost:
   #   enabled: true
-  #   url: "https://mm.example.com"
-  #   token: "${MM_TOKEN}"
   #   prefix: "mm"           # custom prefix
-  # wekan:
-  #   enabled: true
-  #   url: "http://localhost:12050"
-  #   username: "admin"
-  #   password: "secret"
   # shell:
   #   enabled: true
-  #   timeout: 60
-  #   allowed_paths:          # restrict filesystem access (optional)
-  #     - "/home/user/projects"
-  #   blocked_commands:        # block dangerous commands (optional)
-  #     - "sudo"
-  #     - "rm -rf /"
+  #   prefix: false           # no auto-prefix
+
+# Plugin-specific config (credentials, boundaries) goes into:
+#   ~/mcp_plugins/{plugin_name}/config.yaml
+# Example: ~/mcp_plugins/mattermost/config.yaml
+#   url: "https://mm.example.com"
+#   token: "${MM_TOKEN}"
