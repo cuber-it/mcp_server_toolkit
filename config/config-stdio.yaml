@@ -1,0 +1,9 @@
+# MCP Proxy — stdio for Claude Code / Claude Desktop
+# No OAuth, no ports, no health server.
+server_name: "MCP Proxy (stdio)"
+transport: stdio
+log_level: WARNING
+
+autoload:
+  - shell
+  - wekan
