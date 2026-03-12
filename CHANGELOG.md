@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.1.0 (2026-03-12)
+
+### Framework
+- ToolTracker now tracks resources and prompts in addition to tools
+- LoadedPlugin model extended with `resources` and `prompts` fields
+- Plugin config loading: `load_plugin_config(name)` reads `{plugin_dir}/{name}/config.yaml`
+- Plugin discovery: `list_available_plugins()` scans configured plugin directories
+
+### Factory
+- Collision detection for resources and prompts (in addition to tools)
+- Plugin summary includes resource and prompt counts
+
+### Proxy
+- Spec-conformant notifications: `tools/list_changed`, `resources/list_changed`, `prompts/list_changed`
+- Replaced private `ctx._request_context` with public API (try/except pattern)
+- Collision detection for resources and prompts
+- Unload tracks resource/prompt removal (FastMCP lacks `remove_resource()`/`remove_prompt()`)
+- Plugin config separation: credentials in `{plugin_dir}/{name}/config.yaml`, not in proxy config
+- New MCP tools: `proxy__list` (available plugins), `proxy__tools` (loaded tools)
+- `proxy__status` shows resource and prompt counts
+
+### Examples
+- Spec-conformant MCP reference client (`examples/mcp_client.py`)
+  - Handles `tools/list_changed` by re-fetching `tools/list`
+  - Handles `resources/list_changed` and `prompts/list_changed`
+  - Interactive REPL with tool calling, resource listing, prompt listing
+  - Supports stdio and streamable-http transports
+  - OAuth Bearer token support
+- Demo plugin (`plugins/demo_full.py`) showing tool + resource + prompt registration
+
+### Tests
+- 166 tests (was 159), all passing
+- 7 new tests for notification behavior in management tools
+
 ## 1.0.1 (2026-03-11)
 
 ### Framework

@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""mcp-client — Interactive MCP test client for debugging and exploration.
+"""mcp-client — Spec-conformant interactive MCP test client.
 
 Connects to any MCP server via stdio or HTTP and provides an interactive
 REPL to list tools, call them, and observe the raw protocol exchange.
+
+Implements the MCP spec correctly:
+- Handles notifications/tools/list_changed by re-fetching tools/list
+- Handles notifications/resources/list_changed
+- Handles notifications/prompts/list_changed
+- Maintains persistent session (stateful Streamable HTTP)
+- Logs all protocol events in verbose mode
 
 Usage:
     # Connect via stdio (spawn server process)
@@ -12,7 +19,7 @@ Usage:
     python mcp_client.py http http://localhost:12200/mcp
 
     # With verbose protocol logging
-    python mcp_client.py -v stdio -- mcp-proxy --autoload echo
+    python mcp_client.py -v http http://localhost:12201/mcp
 
 REPL Commands:
     tools           List all available tools
@@ -20,7 +27,6 @@ REPL Commands:
     resources       List available resources
     prompts         List available prompts
     info            Show server info and capabilities
-    raw <json>      Send raw JSON-RPC message
     help            Show this help
     quit / exit     Disconnect and exit
 """
@@ -28,22 +34,20 @@ REPL Commands:
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
-import logging
 import sys
 import time
 from typing import Any
 
 import anyio
 
-from mcp import ClientSession
+from mcp import ClientSession, types
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.client.streamable_http import streamable_http_client
-from mcp.types import TextContent
+from mcp.shared.session import RequestResponder
 
 
-# --- Logging / Verbose Output ---
+# --- Protocol Logger ---
 
 class ProtocolLogger:
     """Logs protocol messages when verbose mode is on."""
@@ -60,16 +64,79 @@ class ProtocolLogger:
         print(f"\033[90m[{elapsed:7.3f}s] {prefix} {msg}\033[0m", file=sys.stderr)
 
     def info(self, msg: str) -> None:
+        elapsed = time.monotonic() - self._start
         if self.verbose:
-            elapsed = time.monotonic() - self._start
             print(f"\033[90m[{elapsed:7.3f}s] --- {msg}\033[0m", file=sys.stderr)
+
+    def event(self, msg: str) -> None:
+        """Always-visible event (e.g. tool list changed)."""
+        elapsed = time.monotonic() - self._start
+        print(f"\033[33m[{elapsed:7.3f}s] <<< {msg}\033[0m", file=sys.stderr)
+
+
+# --- Notification Handler ---
+
+class NotificationHandler:
+    """Handles server notifications per MCP spec.
+
+    On tools/list_changed: re-fetches tools/list and updates cached tool count.
+    On resources/list_changed: re-fetches resources/list.
+    On prompts/list_changed: re-fetches prompts/list.
+    """
+
+    def __init__(self, session: ClientSession, proto: ProtocolLogger):
+        self._session = session
+        self._proto = proto
+        self.tool_count = 0
+        self.tools_changed_count = 0
+        self.server_info: Any = None
+        self.capabilities: Any = None
+
+    async def handle(
+        self,
+        message: RequestResponder | types.ServerNotification | Exception,
+    ) -> None:
+        if isinstance(message, Exception):
+            self._proto.event(f"Error: {message}")
+            return
+
+        if not isinstance(message, types.ServerNotification):
+            return
+
+        match message.root:
+            case types.ToolListChangedNotification():
+                self.tools_changed_count += 1
+                self._proto.event("notifications/tools/list_changed received — re-fetching tools/list")
+                result = await self._session.list_tools()
+                old_count = self.tool_count
+                self.tool_count = len(result.tools)
+                self._proto.event(f"Tool list refreshed: {old_count} -> {self.tool_count} tools")
+
+            case types.ResourceListChangedNotification():
+                self._proto.event("notifications/resources/list_changed received — re-fetching")
+                await self._session.list_resources()
+
+            case types.PromptListChangedNotification():
+                self._proto.event("notifications/prompts/list_changed received — re-fetching")
+                await self._session.list_prompts()
+
+            case types.LoggingMessageNotification(params=params):
+                level = params.level if params else "info"
+                data = params.data if params else ""
+                self._proto.log("recv", f"log/{level}: {data}")
+
+            case _:
+                self._proto.log("recv", f"notification: {message.root}")
 
 
 # --- REPL ---
 
-async def repl(session: ClientSession, proto: ProtocolLogger) -> None:
+async def repl(session: ClientSession, proto: ProtocolLogger, handler: NotificationHandler) -> None:
     """Interactive REPL loop."""
-    print("\nConnected. Type 'help' for commands, 'quit' to exit.\n")
+    # Initial tool count
+    result = await session.list_tools()
+    handler.tool_count = len(result.tools)
+    print(f"\nConnected. {handler.tool_count} tools available. Type 'help' for commands.\n")
 
     while True:
         try:
@@ -100,7 +167,7 @@ async def repl(session: ClientSession, proto: ProtocolLogger) -> None:
             elif cmd == "prompts":
                 await _cmd_prompts(session, proto)
             elif cmd == "info":
-                await _cmd_info(session)
+                await _cmd_info(session, handler)
             else:
                 # Try as tool call: "echo_upper hello" → call echo_upper with arg
                 await _cmd_call(session, line, proto)
@@ -117,7 +184,7 @@ Commands:
   <name> {"k":"v"}   Shorthand: call tool with JSON arguments
   resources          List available resources
   prompts            List available prompts
-  info               Show server info and capabilities
+  info               Show server info, capabilities, notification stats
   help               Show this help
   quit / exit        Disconnect and exit
 """)
@@ -167,7 +234,7 @@ async def _cmd_call(session: ClientSession, input_str: str, proto: ProtocolLogge
         return
 
     # Prompt for arguments
-    arguments = {}
+    arguments: dict[str, Any] = {}
     schema = tool.inputSchema or {}
     properties = schema.get("properties", {})
     required = set(schema.get("required", []))
@@ -209,7 +276,7 @@ async def _cmd_call(session: ClientSession, input_str: str, proto: ProtocolLogge
                 arguments[pname] = float(value)
             elif ptype == "boolean":
                 arguments[pname] = value.lower() in ("true", "1", "yes")
-            elif ptype == "object" or ptype == "array":
+            elif ptype in ("object", "array"):
                 arguments[pname] = json.loads(value)
             else:
                 arguments[pname] = value
@@ -228,7 +295,7 @@ async def _cmd_call(session: ClientSession, input_str: str, proto: ProtocolLogge
         print(f"Result ({elapsed:.3f}s):")
 
     for content in result.content:
-        if isinstance(content, TextContent):
+        if isinstance(content, types.TextContent):
             print(content.text)
         else:
             print(f"[{content.type}]: {content}")
@@ -261,9 +328,11 @@ async def _cmd_prompts(session: ClientSession, proto: ProtocolLogger) -> None:
         print(f"  {prompt.name:30s}  {desc}")
 
 
-async def _cmd_info(session: ClientSession) -> None:
-    print(f"  Server: {session.server_info}")
-    print(f"  Capabilities: {session.server_capabilities}")
+async def _cmd_info(session: ClientSession, handler: NotificationHandler) -> None:
+    print(f"  Server:       {handler.server_info or 'N/A'}")
+    print(f"  Capabilities: {handler.capabilities or 'N/A'}")
+    print(f"  Tools:        {handler.tool_count}")
+    print(f"  Refreshes:    {handler.tools_changed_count} (tools/list_changed received)")
 
 
 # --- Transport Connection ---
@@ -279,29 +348,49 @@ async def connect_stdio(args: argparse.Namespace, proto: ProtocolLogger) -> None
 
     async with stdio_client(params) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
+            handler = NotificationHandler(session, proto)
+            session._message_handler = handler.handle
             proto.log("send", "initialize")
             init = await session.initialize()
+            handler.server_info = init.serverInfo
+            handler.capabilities = init.capabilities
             proto.log("recv", f"initialized: {init.serverInfo}")
             print(f"Server: {init.serverInfo.name} v{init.serverInfo.version}")
-            await repl(session, proto)
+            await repl(session, proto, handler)
 
 
 async def connect_http(args: argparse.Namespace, proto: ProtocolLogger) -> None:
     """Connect via streamable HTTP transport."""
     url = args.url
+    headers = {}
+
+    # OAuth token from CLI or env
+    token = getattr(args, "token", None)
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
 
     proto.info(f"Connecting via HTTP: {url}")
 
-    async with streamable_http_client(url) as (read_stream, write_stream, get_session_id):
+    import httpx
+    http_client = httpx.AsyncClient(headers=headers) if headers else None
+
+    async with streamable_http_client(url, http_client=http_client) as (read_stream, write_stream, get_session_id):
         async with ClientSession(read_stream, write_stream) as session:
+            handler = NotificationHandler(session, proto)
+            session._message_handler = handler.handle
             proto.log("send", "initialize")
             init = await session.initialize()
+            handler.server_info = init.serverInfo
+            handler.capabilities = init.capabilities
             session_id = get_session_id()
             proto.log("recv", f"initialized: {init.serverInfo}, session={session_id}")
             print(f"Server: {init.serverInfo.name} v{init.serverInfo.version}")
             if session_id:
                 print(f"Session: {session_id}")
-            await repl(session, proto)
+            caps = init.capabilities
+            if caps and caps.tools and getattr(caps.tools, "listChanged", False):
+                print("Server supports tools/list_changed — dynamic tool updates enabled")
+            await repl(session, proto, handler)
 
 
 # --- Main ---
@@ -309,14 +398,15 @@ async def connect_http(args: argparse.Namespace, proto: ProtocolLogger) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="mcp-client",
-        description="Interactive MCP test client for debugging and exploration.",
+        description="Spec-conformant interactive MCP test client.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   %(prog)s stdio -- python -m mcp_server_factory --config config.yaml
   %(prog)s stdio -- mcp-proxy --autoload echo
-  %(prog)s http http://localhost:12200/mcp
-  %(prog)s -v stdio -- mcp-factory
+  %(prog)s http http://localhost:12201/mcp
+  %(prog)s -v http http://localhost:12201/mcp
+  %(prog)s http --token mytoken http://localhost:12201/mcp
 """,
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Show protocol messages")
@@ -328,7 +418,8 @@ Examples:
 
     # http
     http_p = sub.add_parser("http", help="Connect via streamable HTTP")
-    http_p.add_argument("url", help="Server URL (e.g. http://localhost:12200/mcp)")
+    http_p.add_argument("url", help="Server URL (e.g. http://localhost:12201/mcp)")
+    http_p.add_argument("--token", "-t", help="Bearer token for OAuth")
 
     return parser.parse_args()
 
@@ -337,8 +428,8 @@ def main() -> None:
     args = parse_args()
     proto = ProtocolLogger(verbose=args.verbose)
 
-    print("MCP Client — Interactive Test & Debug Tool")
-    print("=" * 45)
+    print("MCP Client — Spec-Conformant Test & Debug Tool")
+    print("=" * 48)
 
     try:
         if args.transport == "stdio":

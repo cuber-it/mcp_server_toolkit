@@ -11,7 +11,7 @@ from typing import Any, Callable
 
 from mcp.server.fastmcp import FastMCP
 
-from mcp_server_framework.plugins import LoadedPlugin, load_module, find_register, ToolTracker
+from mcp_server_framework.plugins import LoadedPlugin, load_module, load_plugin_config, find_register, ToolTracker
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,8 @@ class PluginManager:
         self.config = config
         self.plugins: dict[str, LoadedPlugin] = {}
         self._all_tools: set[str] = set()
+        self._all_resources: set[str] = set()
+        self._all_prompts: set[str] = set()
         self._commands: dict[str, Callable] = {}
 
     def register_command(self, name: str, handler: Callable) -> None:
@@ -75,8 +77,11 @@ class PluginManager:
         if name in self.plugins:
             return LoadResult(ok=False, error=f"Plugin '{name}' already loaded")
 
-        plugins_config = self.config.get("plugins", {})
-        plugin_config = plugins_config.get(name, {})
+        # Plugin config: plugin_dir/{name}/config.yaml, fallback to proxy config
+        plugin_config = load_plugin_config(name)
+        if not plugin_config:
+            plugins_config = self.config.get("plugins", {})
+            plugin_config = plugins_config.get(name, {})
         if isinstance(plugin_config, dict) and not plugin_config.get("enabled", True):
             return LoadResult(ok=False, error=f"Plugin '{name}' disabled in config")
 
@@ -96,6 +101,8 @@ class PluginManager:
             return LoadResult(ok=False, error=f"Plugin '{name}' register() failed: {e}")
 
         new_tools = tracker.registered_tools
+        new_resources = tracker.registered_resources
+        new_prompts = tracker.registered_prompts
         collisions = self._all_tools & set(new_tools)
         if collisions:
             # Remove already-registered tools from FastMCP to stay clean
@@ -105,13 +112,34 @@ class PluginManager:
                 ok=False,
                 error=f"Tool collision: {', '.join(collisions)} already registered",
             )
+        res_collisions = self._all_resources & set(new_resources)
+        if res_collisions:
+            for tool_name in new_tools:
+                self._remove_tool_from_mcp(tool_name)
+            return LoadResult(
+                ok=False,
+                error=f"Resource collision: {', '.join(res_collisions)} already registered",
+            )
+        prompt_collisions = self._all_prompts & set(new_prompts)
+        if prompt_collisions:
+            for tool_name in new_tools:
+                self._remove_tool_from_mcp(tool_name)
+            return LoadResult(
+                ok=False,
+                error=f"Prompt collision: {', '.join(prompt_collisions)} already registered",
+            )
 
         self._all_tools.update(new_tools)
+        self._all_resources.update(new_resources)
+        self._all_prompts.update(new_prompts)
+        pcfg = plugin_config if isinstance(plugin_config, dict) else {}
         self.plugins[name] = LoadedPlugin(
             name=name, module=module, tools=new_tools,
-            loaded_at=datetime.now(), config=plugin_config if isinstance(plugin_config, dict) else {},
+            resources=new_resources, prompts=new_prompts,
+            loaded_at=datetime.now(), config=pcfg,
         )
-        logger.info("Plugin '%s' loaded: %d tools %s", name, len(new_tools), new_tools)
+        logger.info("Plugin '%s' loaded: %d tools, %d resources, %d prompts",
+                     name, len(new_tools), len(new_resources), len(new_prompts))
         return LoadResult(ok=True, tools=new_tools)
 
     def unload(self, name: str) -> UnloadResult:
@@ -125,6 +153,20 @@ class PluginManager:
             if self._remove_tool_from_mcp(tool_name):
                 removed.append(tool_name)
             self._all_tools.discard(tool_name)
+
+        # Resources/prompts: remove from tracking.
+        # FastMCP has no remove_resource()/remove_prompt() API (SDK 1.26),
+        # so we can only clean our tracking sets. Log a warning if present.
+        for uri in plugin.resources:
+            self._all_resources.discard(uri)
+        for prompt_name in plugin.prompts:
+            self._all_prompts.discard(prompt_name)
+        if plugin.resources or plugin.prompts:
+            logger.warning(
+                "Plugin '%s' had %d resources, %d prompts — "
+                "removed from tracking but FastMCP has no removal API",
+                name, len(plugin.resources), len(plugin.prompts),
+            )
 
         logger.info("Plugin '%s' unloaded: removed %d tools %s", name, len(removed), removed)
         return UnloadResult(ok=True, removed=removed)
@@ -149,11 +191,17 @@ class PluginManager:
         """Return summary of all loaded plugins."""
         return {
             "total_tools": len(self._all_tools),
+            "total_resources": len(self._all_resources),
+            "total_prompts": len(self._all_prompts),
             "total_plugins": len(self.plugins),
             "plugins": {
                 name: {
                     "tools": p.tools,
                     "tool_count": len(p.tools),
+                    "resources": p.resources,
+                    "resource_count": len(p.resources),
+                    "prompts": p.prompts,
+                    "prompt_count": len(p.prompts),
                     "loaded_at": p.loaded_at.isoformat(),
                 }
                 for name, p in self.plugins.items()

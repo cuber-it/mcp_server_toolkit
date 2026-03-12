@@ -18,6 +18,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable
 
+import yaml
+
 logger = logging.getLogger(__name__)
 
 # Default local plugin dirs — can be extended via set_plugin_dirs()
@@ -34,6 +36,61 @@ def add_plugin_dir(path: Path) -> None:
     """Add a local plugin directory."""
     if path not in _plugin_dirs:
         _plugin_dirs.append(path)
+
+
+def load_plugin_config(name: str) -> dict[str, Any]:
+    """Load config.yaml from the plugin's directory in any registered plugin_dir.
+
+    Returns empty dict if no config found.
+    """
+    for plugin_dir in _plugin_dirs:
+        config_file = plugin_dir / name / "config.yaml"
+        if config_file.exists():
+            try:
+                with open(config_file) as f:
+                    data = yaml.safe_load(f) or {}
+                logger.info("Plugin '%s' config loaded from %s", name, config_file)
+                return data
+            except Exception as e:
+                logger.warning("Error reading plugin config '%s': %s", config_file, e)
+    return {}
+
+
+def list_available_plugins() -> list[dict[str, str]]:
+    """Scan all plugin_dirs for available plugins.
+
+    Returns list of dicts with 'name' and 'description'.
+    A directory counts as a plugin if it contains register.py, __init__.py, or {name}.py.
+    """
+    seen = set()
+    result = []
+    for plugin_dir in _plugin_dirs:
+        if not plugin_dir.is_dir():
+            continue
+        for entry in sorted(plugin_dir.iterdir()):
+            if entry.name.startswith(("_", ".")):
+                continue
+            name = None
+            if entry.is_dir() and (
+                (entry / "__init__.py").exists()
+                or (entry / "register.py").exists()
+            ):
+                name = entry.name
+            elif entry.is_file() and entry.suffix == ".py":
+                name = entry.stem
+            if name and name not in seen:
+                seen.add(name)
+                desc = ""
+                config_file = entry / "config.yaml" if entry.is_dir() else None
+                if config_file and config_file.exists():
+                    try:
+                        with open(config_file) as f:
+                            data = yaml.safe_load(f) or {}
+                        desc = data.get("description", "")
+                    except Exception:
+                        pass
+                result.append({"name": name, "description": desc})
+    return result
 
 
 def load_module(name: str, config: dict[str, Any]) -> ModuleType | None:

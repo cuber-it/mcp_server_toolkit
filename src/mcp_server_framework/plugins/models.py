@@ -17,3 +17,5 @@ class LoadedPlugin:
     loaded_at: datetime
     config: dict
     internal: bool = False
+    resources: list[str] = field(default_factory=list)
+    prompts: list[str] = field(default_factory=list)

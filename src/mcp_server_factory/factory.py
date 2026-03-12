@@ -21,6 +21,8 @@ class Factory:
         self.config = config
         self.plugins: dict[str, LoadedPlugin] = {}
         self._all_tools: set[str] = set()
+        self._all_resources: set[str] = set()
+        self._all_prompts: set[str] = set()
 
     def load_internals(self) -> None:
         """Load internal factory plugins (management, logging)."""
@@ -59,15 +61,28 @@ class Factory:
             logger.error("Plugin '%s' register() failed: %s", name, e)
             return False
         new_tools = tracker.registered_tools
+        new_resources = tracker.registered_resources
+        new_prompts = tracker.registered_prompts
         collisions = self._all_tools & set(new_tools)
         if collisions:
             for tool_name in collisions:
                 owner = self._find_tool_owner(tool_name)
                 logger.error("Tool collision: '%s' already in plugin '%s', cannot load '%s'", tool_name, owner, name)
             return False
+        res_collisions = self._all_resources & set(new_resources)
+        if res_collisions:
+            logger.error("Resource collision: %s, cannot load '%s'", res_collisions, name)
+            return False
+        prompt_collisions = self._all_prompts & set(new_prompts)
+        if prompt_collisions:
+            logger.error("Prompt collision: %s, cannot load '%s'", prompt_collisions, name)
+            return False
         self._all_tools.update(new_tools)
+        self._all_resources.update(new_resources)
+        self._all_prompts.update(new_prompts)
         self.plugins[name] = LoadedPlugin(
             name=name, module=module, tools=new_tools,
+            resources=new_resources, prompts=new_prompts,
             loaded_at=datetime.now(), config=plugin_config, internal=internal,
         )
         label = "internal" if internal else "external"
@@ -83,10 +98,14 @@ class Factory:
     def get_plugin_summary(self) -> dict[str, Any]:
         return {
             "total_tools": len(self._all_tools),
+            "total_resources": len(self._all_resources),
+            "total_prompts": len(self._all_prompts),
             "total_plugins": len(self.plugins),
             "plugins": {
                 name: {
                     "tools": p.tools, "tool_count": len(p.tools),
+                    "resources": p.resources, "resource_count": len(p.resources),
+                    "prompts": p.prompts, "prompt_count": len(p.prompts),
                     "internal": p.internal, "loaded_at": p.loaded_at.isoformat(),
                 }
                 for name, p in self.plugins.items()

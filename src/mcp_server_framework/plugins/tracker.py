@@ -43,10 +43,10 @@ def set_pre_call_validator(validator: Callable | None) -> None:
 
 
 class ToolTracker:
-    """Proxy around FastMCP that tracks tool registrations and wraps for logging.
+    """Proxy around FastMCP that tracks tool, resource and prompt registrations.
 
     Args:
-        mcp: FastMCP instance to register tools on.
+        mcp: FastMCP instance to register on.
         prefix: Optional prefix for tool names. When set, tools are registered
             as ``{prefix}_{original_name}`` unless they already start with the prefix.
     """
@@ -54,11 +54,21 @@ class ToolTracker:
     def __init__(self, mcp: FastMCP, prefix: str | None = None):
         self._mcp = mcp
         self._registered: list[str] = []
+        self._registered_resources: list[str] = []
+        self._registered_prompts: list[str] = []
         self._prefix = prefix
 
     @property
     def registered_tools(self) -> list[str]:
         return list(self._registered)
+
+    @property
+    def registered_resources(self) -> list[str]:
+        return list(self._registered_resources)
+
+    @property
+    def registered_prompts(self) -> list[str]:
+        return list(self._registered_prompts)
 
     def _apply_prefix(self, name: str) -> str:
         """Apply prefix to tool name, avoiding double-prefixing."""
@@ -79,6 +89,27 @@ class ToolTracker:
             wrapped = _make_logged_wrapper(func, prefixed_name)
             result = real_decorator(wrapped)
             self._registered.append(prefixed_name)
+            return result
+
+        return tracking_decorator
+
+    def resource(self, uri: str, *args, **kwargs):
+        real_decorator = self._mcp.resource(uri, *args, **kwargs)
+
+        def tracking_decorator(func):
+            result = real_decorator(func)
+            self._registered_resources.append(uri)
+            return result
+
+        return tracking_decorator
+
+    def prompt(self, *args, **kwargs):
+        real_decorator = self._mcp.prompt(*args, **kwargs)
+
+        def tracking_decorator(func):
+            name = kwargs.get("name", func.__name__)
+            result = real_decorator(func)
+            self._registered_prompts.append(name)
             return result
 
         return tracking_decorator
