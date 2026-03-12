@@ -1,6 +1,8 @@
-# MCP Server Toolkit
+# MCP Server Framework
 
-A Python toolkit for building MCP (Model Context Protocol) servers.
+A Python framework for building MCP (Model Context Protocol) servers.
+
+> **PyPI:** `pip install mcp-server-framework` — repo name is `mcp_server_toolkit` for historical reasons.
 
 Three packages, one ecosystem:
 
