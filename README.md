@@ -305,6 +305,56 @@ To explicitly disable:
 oauth_enabled: false
 ```
 
+## Plugin Registry (v1.4)
+
+The framework provides `PluginRegistry` — a shared tracking layer used internally
+by Factory and Proxy. If you build a custom server, you can use it directly:
+
+```python
+from mcp_server_framework.plugins import PluginRegistry
+
+registry = PluginRegistry(mcp, config)
+result = registry.load_plugin("my_plugin")
+if result.ok:
+    print(f"Loaded: {result.plugin.tools}")
+```
+
+Features:
+- Collision detection for tools, resources, and prompts
+- `load_plugin()` / `unload_plugin()` with structured results (`LoadResult`, `UnloadResult`)
+- `get_summary()`, `all_tools`, `find_tool_owner()`
+
+### Introspection Helpers
+
+Pure functions for formatted output — no MCP dependency:
+
+```python
+from mcp_server_framework.plugins import plugin_status, plugin_list, tool_list
+
+print(plugin_status(registry))   # Server info + counts
+print(plugin_list(registry))     # Plugin → tools table
+print(tool_list(registry))       # Sorted tool list
+```
+
+### Tool Call Loggers
+
+Pluggable logging with four implementations:
+
+```python
+from mcp_server_framework.plugins import (
+    JsonlToolLogger,      # Daily JSONL + gzip archival + retention
+    TextToolLogger,       # One-line text + size-based rotation
+    TranscriptLogger,     # Markdown session transcripts
+    CompositeToolLogger,  # Combines multiple loggers
+)
+
+logger = CompositeToolLogger([
+    JsonlToolLogger(log_dir),
+    TextToolLogger(log_file),
+])
+logger.log_call("echo", {"text": "hi"}, "hi", success=True)
+```
+
 ## Security
 
 ### Pre-Call Validation
@@ -339,7 +389,7 @@ JSON output example:
 
 ### Tool Call Logging (Proxy)
 
-The proxy automatically logs every tool call to `~/.mcp_proxy/logs/tool_calls.jsonl`:
+The proxy uses `JsonlToolLogger` from the framework to log every tool call to `~/.mcp_proxy/logs/tool_calls.jsonl`:
 
 ```json
 {"ts": "2026-03-11T14:30:00", "tool": "echo", "params": {"text": "hello"}, "result": "hello", "ok": true}
@@ -468,7 +518,8 @@ pytest tests/proxy/   # proxy only
 
 ```
 src/
-├── mcp_server_framework/     # Shared: config, server, health, logging, plugins
+├── mcp_server_framework/     # Shared: config, server, health, plugins
+│   └── plugins/              # PluginRegistry, ToolLogger, Introspection
 ├── mcp_server_factory/       # Static loader + CLI
 └── mcp_server_proxy/         # Dynamic loader + management API + CLI
 plugins/

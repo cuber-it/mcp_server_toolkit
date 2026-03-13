@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.4.0 (2026-03-13)
+
+### Framework
+- **PluginRegistry**: Shared plugin tracking with collision detection, extracted from Factory and Proxy.
+  Both now use `PluginRegistry` internally instead of duplicating tracking logic.
+- **ToolLogger**: Pluggable tool call logging with three implementations:
+  - `JsonlToolLogger` — daily JSONL files with gzip archival and retention (from Proxy)
+  - `TextToolLogger` — one-line text log with size-based rotation (from Factory)
+  - `TranscriptLogger` — Markdown session transcripts (from Factory)
+  - `CompositeToolLogger` — combines multiple loggers
+- **Introspection helpers**: `plugin_status()`, `plugin_list()`, `tool_list()` — pure functions
+  for formatted output, used by Factory and Proxy management tools.
+
+### Factory
+- Refactored to use `PluginRegistry` from framework. No behavioral changes.
+
+### Proxy
+- Refactored to use `PluginRegistry` from framework. No behavioral changes.
+
+### Notes
+- Non-breaking: all public APIs unchanged, all 142 tests pass.
+- Plugin `register(mcp, config)` interface unchanged.
+
 ## 1.3.0 (2026-03-13)
 
 ### Framework
