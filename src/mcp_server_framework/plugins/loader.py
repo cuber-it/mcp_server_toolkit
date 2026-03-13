@@ -44,18 +44,25 @@ def add_plugin_dir(path: Path) -> None:
 def load_plugin_config(name: str) -> dict[str, Any]:
     """Load config.yaml from the plugin's directory in any registered plugin_dir.
 
+    For dotted names (e.g. "mcp_wekan_tools.wekan"), also tries the short
+    name ("wekan") so that plugin configs don't need dotted directory names.
+
     Returns empty dict if no config found.
     """
+    candidates = [name]
+    if "." in name:
+        candidates.append(name.rsplit(".", 1)[-1])
     for plugin_dir in _plugin_dirs:
-        config_file = plugin_dir / name / "config.yaml"
-        if config_file.exists():
-            try:
-                with open(config_file) as f:
-                    data = yaml.safe_load(f) or {}
-                logger.info("Plugin '%s' config loaded from %s", name, config_file)
-                return data
-            except Exception as e:
-                logger.warning("Error reading plugin config '%s': %s", config_file, e)
+        for candidate in candidates:
+            config_file = plugin_dir / candidate / "config.yaml"
+            if config_file.exists():
+                try:
+                    with open(config_file) as f:
+                        data = yaml.safe_load(f) or {}
+                    logger.info("Plugin '%s' config loaded from %s", name, config_file)
+                    return data
+                except Exception as e:
+                    logger.warning("Error reading plugin config '%s': %s", config_file, e)
     return {}
 
 
