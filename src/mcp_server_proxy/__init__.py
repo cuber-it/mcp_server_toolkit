@@ -4,7 +4,7 @@ Loads and unloads tool modules at runtime without restart.
 Uses the same register(mcp, config) interface as the Factory.
 """
 
-__version__ = "1.2.1"
+__version__ = "1.3.0"
 
 from .proxy import PluginManager
 

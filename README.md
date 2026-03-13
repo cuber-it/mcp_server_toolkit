@@ -39,9 +39,9 @@ mcp-proxy serve --autoload echo --http 12200 --plugin-dir ./plugins
 
 # Manage plugins at runtime via CLI
 mcp-proxy status
-mcp-proxy load shell
+mcp-proxy load greet
 mcp-proxy unload echo
-mcp-proxy reload shell
+mcp-proxy reload greet
 ```
 
 Plugins can also be managed via MCP tools (`proxy__load`, `proxy__unload`, `proxy__reload`)
@@ -87,6 +87,25 @@ Tools, resources, and prompts are all tracked and checked for collisions.
 Works with Factory and Proxy without changes.
 See `plugins/demo_full.py` for a complete example.
 
+### Plugin Loading
+
+The framework supports two plugin sources:
+
+**Local plugins** — files or directories in `--plugin-dir`:
+```bash
+mcp-proxy serve --autoload echo --plugin-dir ./plugins
+```
+
+**Installed packages** — dotted Python imports:
+```yaml
+autoload:
+  - echo                        # local plugin from --plugin-dir
+  - mcp_shell_tools.shell       # installed PyPI package
+  - mcp_wekan_tools.wekan       # installed PyPI package
+```
+
+Dotted names are imported directly via `importlib`. Simple names go through the plugin directory search.
+
 ### Create a New Plugin
 
 ```bash
@@ -109,16 +128,16 @@ plugins/myservice/
 This separation keeps your business logic testable and reusable
 without MCP dependencies.
 
-## Included Plugins
+## Demo Plugins
 
 | Plugin | Tools | Description |
 |--------|-------|-------------|
 | `echo` | 2 | Minimal example — echo and echo_upper |
 | `greet` | 1 | Minimal example — greet by name |
-| `mattermost` | 5 | Mattermost REST API (send, channels, posts, search, user) |
-| `wekan` | 18 | Wekan Kanban REST API (boards, cards, checklists, labels) |
-| `shell` | 33 | Filesystem, editor, search, shell, git, systemd, HTTP, packages, diagnostics |
 | `demo_full` | 1 | Reference: tool + resource + prompt registration |
+
+Production tool plugins (shell, wekan, mattermost) are available as separate
+PyPI packages. See [mcp_tools](https://github.com/cuber-it/mcp_tools).
 
 ## Proxy Features
 
@@ -168,7 +187,7 @@ mcp-proxy serve --mgmt-token "my-secret" --autoload echo
 
 # Client commands with token
 mcp-proxy status --token "my-secret"
-mcp-proxy load shell --token "my-secret"
+mcp-proxy load greet --token "my-secret"
 
 # Or via environment variable (works for both server and client)
 export MCP_MGMT_TOKEN="my-secret"
@@ -187,7 +206,7 @@ Avoid tool name collisions when loading multiple plugins:
 auto_prefix: true   # tool "send" from plugin "mm" becomes "mm_send"
 
 plugins:
-  mattermost:
+  my_plugin:
     prefix: "mm"     # custom prefix (overrides plugin name)
   echo:
     prefix: false     # disable prefix for this plugin
@@ -221,10 +240,10 @@ autoload:
 
 ```
 # At runtime: load a plugin dynamically
-proxy__load shell         → "Loaded 'shell': 33 tools. Call them via proxy__run(...)"
+proxy__load greet         → "Loaded 'greet': 1 tool. Call them via proxy__run(...)"
 
 # Call dynamic tools via the gateway
-proxy__run(tool="shell_exec", arguments={"command": "ls"})
+proxy__run(tool="greet", arguments={"name": "Claude"})
 
 # List only dynamic tools
 proxy__tools(dynamic_only=true)
@@ -288,26 +307,6 @@ oauth_enabled: false
 
 ## Security
 
-### Shell Plugin Boundaries
-
-The shell plugin supports configurable security boundaries via its
-plugin config file:
-
-```yaml
-# ~/mcp_plugins/shell/config.yaml
-allowed_paths:              # restrict filesystem access
-  - "/home/user/projects"
-  - "/tmp"
-blocked_commands:            # block dangerous commands
-  - "sudo"
-  - "rm -rf /"
-  - "chmod"
-```
-
-Without boundaries configured, the shell plugin has unrestricted access
-(suitable for local development). For shared or production deployments,
-configure `allowed_paths` and `blocked_commands`.
-
 ### Pre-Call Validation
 
 Register a custom validator that runs before every tool invocation:
@@ -343,7 +342,7 @@ JSON output example:
 The proxy automatically logs every tool call to `~/.mcp_proxy/logs/tool_calls.jsonl`:
 
 ```json
-{"ts": "2026-03-11T14:30:00", "tool": "shell_exec", "params": {"command": "ls"}, "result": "...", "ok": true}
+{"ts": "2026-03-11T14:30:00", "tool": "echo", "params": {"text": "hello"}, "result": "hello", "ok": true}
 ```
 
 - Daily rotation with gzip compression (`YYYY-MM-DD.jsonl.gz`)
@@ -381,8 +380,7 @@ Ready-to-run scripts in `examples/`:
 ```bash
 ./examples/run_factory_echo.sh       # Factory + Echo (stdio, all-in-one)
 ./examples/run_proxy_http.sh         # Proxy + Echo (HTTP)
-./examples/run_proxy_shell.sh        # Proxy + Shell (HTTP)
-./examples/run_proxy_full.sh         # Proxy + Echo + Shell (HTTP)
+./examples/run_proxy_full.sh         # Proxy + Echo + Greet (HTTP)
 ./examples/connect_proxy_http.sh     # Client → running proxy
 ```
 
@@ -413,18 +411,12 @@ oauth_cache_ttl: 28800          # token cache seconds (default: 8h, 0 = disabled
 management_token: "${MCP_MGMT_TOKEN}"
 
 autoload:
-  - echo
-  - shell
+  - echo                              # local plugin
+  - mcp_shell_tools.shell             # installed PyPI package
 
 plugins:
   echo:
     enabled: true
-  shell:
-    enabled: true
-    prefix: false           # no auto-prefix for shell tools
-  mattermost:
-    enabled: true
-    prefix: "mm"            # custom prefix
 ```
 
 ### Plugin-Specific Configuration
@@ -434,21 +426,6 @@ per plugin, **not** into the proxy config:
 
 ```
 ~/mcp_plugins/{plugin_name}/config.yaml
-```
-
-```yaml
-# ~/mcp_plugins/mattermost/config.yaml
-url: "https://mm.example.com"
-token: "${MM_TOKEN}"
-```
-
-```yaml
-# ~/mcp_plugins/shell/config.yaml
-timeout: 60
-allowed_paths:
-  - "/home/user/projects"
-blocked_commands:
-  - "sudo"
 ```
 
 The proxy loads these automatically. If no plugin config file exists, it falls
@@ -482,7 +459,7 @@ Use the proxy as a stdio MCP server — no OAuth, no ports:
 ## Tests
 
 ```bash
-pytest           # 183 tests
+pytest           # all tests
 pytest -v        # verbose
 pytest tests/proxy/   # proxy only
 ```
@@ -497,19 +474,19 @@ src/
 plugins/
 ├── echo.py                   # Minimal example
 ├── greet.py                  # Minimal example
-├── demo_full.py              # Reference: tool + resource + prompt
-├── mattermost/               # REST adapter (Mattermost)
-├── wekan/                    # REST adapter (Wekan Kanban)
-└── shell/                    # 33 workstation tools (filesystem, editor, search, shell, git, system, HTTP, packages)
+└── demo_full.py              # Reference: tool + resource + prompt
 examples/
 ├── mcp_client.py             # Interactive test client
 ├── configs/                  # Ready-to-use YAML configs
 └── *.sh                      # Launch scripts
 scripts/
 └── new-plugin.sh             # Plugin scaffold generator
-tests/                        # 183 tests (framework, factory, proxy, plugins)
+tests/                        # Tests (framework, factory, proxy)
 config/                       # Example configs + systemd service
 ```
+
+Production tool plugins are maintained in a separate repository:
+[mcp_tools](https://github.com/cuber-it/mcp_tools) — shell, wekan, mattermost, and more.
 
 ## License
 

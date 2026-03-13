@@ -30,15 +30,11 @@ autoload:
 plugins:
   echo:
     enabled: true
-  # mattermost:
-  #   enabled: true
-  #   prefix: "mm"           # custom prefix
-  # shell:
-  #   enabled: true
-  #   prefix: false           # no auto-prefix
 
-# Plugin-specific config (credentials, boundaries) goes into:
-#   ~/mcp_plugins/{plugin_name}/config.yaml
-# Example: ~/mcp_plugins/mattermost/config.yaml
-#   url: "https://mm.example.com"
-#   token: "${MM_TOKEN}"
+# Production plugins are available as separate PyPI packages:
+#   pip install mcp-shell-tools mcp-wekan-tools mcp-mattermost-tools
+# Load them via dotted import in autoload:
+#   - mcp_shell_tools.shell
+#   - mcp_wekan_tools.wekan
+#   - mcp_mattermost_tools.mattermost
+# See: https://github.com/cuber-it/mcp_tools

@@ -20,10 +20,10 @@ class TestParseArgs:
             assert args.command == "serve"
 
     def test_serve_with_autoload(self):
-        with patch("sys.argv", ["mcp-proxy", "serve", "--autoload", "echo", "shell"]):
+        with patch("sys.argv", ["mcp-proxy", "serve", "--autoload", "echo", "greet"]):
             args = parse_args()
             assert args.command == "serve"
-            assert args.autoload == ["echo", "shell"]
+            assert args.autoload == ["echo", "greet"]
 
     def test_serve_with_http(self):
         with patch("sys.argv", ["mcp-proxy", "serve", "--http", "12200"]):

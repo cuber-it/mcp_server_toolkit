@@ -1,11 +1,14 @@
 """Loader — Plugin resolution and import.
 
-Search order for plugin name "wekan":
-1. Local plugin directories (configurable)
-2. plugins/wekan/register.py (local package)
-3. mcp_wekan_tools (installed package)
-4. Path from config
-5. Fully qualified import
+Dotted names (e.g. "mcp_shell_tools.shell") are imported directly
+via importlib — no directory scan needed. Install the package and go.
+
+Simple names (e.g. "echo") use a search order:
+1. Local file: {plugin_dir}/echo.py
+2. Local package: {plugin_dir}/echo/__init__.py
+3. Pip package: mcp_echo_tools
+4. Config path: plugins.echo.path
+5. Qualified import: echo as module path
 """
 
 from __future__ import annotations
@@ -103,6 +106,15 @@ def load_module(name: str, config: dict[str, Any]) -> ModuleType | None:
     4. Config path: plugins.{name}.path
     5. Qualified import: {name} as module path
     """
+    # 0. Dotted name → direct import (e.g. "mcp_shell_tools.shell")
+    if "." in name:
+        module = _try_import(name)
+        if module and find_register(module):
+            logger.info("Plugin '%s' loaded via dotted import", name)
+            return module
+        logger.warning("Plugin '%s' not importable (dotted name)", name)
+        return None
+
     # 1. Local file
     for plugin_dir in _plugin_dirs:
         plugin_file = plugin_dir / f"{name}.py"
@@ -136,7 +148,7 @@ def load_module(name: str, config: dict[str, Any]) -> ModuleType | None:
         if explicit_path:
             return _load_from_path(Path(explicit_path).expanduser(), name)
 
-    # 5. Qualified import
+    # 5. Simple name as module (fallback)
     module = _try_import(name)
     if module and find_register(module):
         return module

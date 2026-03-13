@@ -5,5 +5,7 @@ transport: stdio
 log_level: WARNING
 
 autoload:
-  - shell
-  - wekan
+  - echo
+  # Production plugins (install from PyPI, load via dotted import):
+  # - mcp_shell_tools.shell
+  # - mcp_wekan_tools.wekan

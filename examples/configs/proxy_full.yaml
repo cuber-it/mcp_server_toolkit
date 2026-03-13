@@ -1,5 +1,5 @@
-# Proxy with multiple plugins — HTTP transport
-# Loads echo + shell at startup, mattermost/wekan available for runtime loading
+# Proxy with demo plugins — HTTP transport
+# Loads echo + greet at startup, demo_full available for runtime loading
 server_name: "Full Proxy"
 transport: http
 host: "127.0.0.1"
@@ -16,7 +16,7 @@ auto_prefix: true
 
 autoload:
   - echo
-  - shell
+  - greet
 
 plugins:
   echo:
@@ -24,24 +24,11 @@ plugins:
     prefix: false     # echo tools are already short, no prefix needed
   greet:
     enabled: true
-  shell:
-    enabled: true
-    timeout: 60
-    # Security boundaries (optional):
-    # allowed_paths:
-    #   - "/home/user/projects"
-    #   - "/tmp"
-    # blocked_commands:
-    #   - "sudo"
-    #   - "rm -rf /"
-  # Uncomment and configure to use:
-  # mattermost:
-  #   enabled: true
-  #   url: "https://mm.example.com"
-  #   token: "your-token-here"
-  # wekan:
-  #   enabled: true
-  #   url: "http://localhost:12050"
-  #   username: "admin"
-  #   password: "secret"
-  #   default_board: "board-id-here"
+
+# Production plugins are available as separate PyPI packages:
+#   pip install mcp-shell-tools mcp-wekan-tools mcp-mattermost-tools
+# Load via dotted import:
+#   autoload:
+#     - mcp_shell_tools.shell
+#     - mcp_wekan_tools.wekan
+# See: https://github.com/cuber-it/mcp_tools

@@ -9,13 +9,6 @@ plugins:
     enabled: true
   # greet:
   #   enabled: true
-  # shell:
-  #   enabled: true
-  #   timeout: 60
-  #   allowed_paths:
-  #     - "/home/user/projects"
-  #   blocked_commands:
-  #     - "sudo"
-  # wekan:
-  #   enabled: true
-  #   url: "http://localhost:12050"
+
+# Production plugins are available as separate PyPI packages.
+# See: https://github.com/cuber-it/mcp_tools

@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.0 (2026-03-13)
+
+### Framework
+- **Dotted import support**: Plugin names with dots (e.g. `mcp_shell_tools.shell`) are imported
+  directly via `importlib`, skipping directory scan. Enables loading installed PyPI packages as plugins.
+
+### Plugins
+- **Extracted**: shell, wekan, mattermost moved to separate repository
+  ([mcp_tools](https://github.com/cuber-it/mcp_tools)) as independent PyPI packages.
+  Only demo plugins (echo, greet, demo_full) remain in this repo.
+
+### Docs
+- README: updated plugin table, added dotted import documentation, removed shell/wekan/mattermost references
+- Example configs and scripts updated for demo plugins only
+
 ## 1.2.1 (2026-03-12)
 
 ### Config

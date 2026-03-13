@@ -32,23 +32,11 @@ You can load/unload plugins at runtime.
 # Terminal 3: Management (optional)
 mcp-proxy status
 mcp-proxy load greet
-mcp-proxy load shell
 mcp-proxy unload echo
 ```
 
-### 3. Proxy + Shell (HTTP)
-Proxy with the shell plugin — filesystem, search, shell execution.
-
-```bash
-# Terminal 1
-./examples/run_proxy_shell.sh
-
-# Terminal 2
-./examples/connect_proxy_http.sh
-```
-
-### 4. Proxy + Full (HTTP)
-Proxy with echo + shell, auto-prefix enabled to avoid tool name collisions.
+### 3. Proxy + Demo Plugins (HTTP)
+Proxy with echo + greet, auto-prefix enabled to avoid tool name collisions.
 
 ```bash
 # Terminal 1
@@ -58,7 +46,7 @@ Proxy with echo + shell, auto-prefix enabled to avoid tool name collisions.
 ./examples/connect_proxy_http.sh
 ```
 
-### 5. Proxy with authentication
+### 4. Proxy with authentication
 
 ```bash
 # Terminal 1: Start with token
@@ -66,10 +54,10 @@ MCP_MGMT_TOKEN=secret mcp-proxy serve --autoload echo --http 12200 --plugin-dir 
 
 # Terminal 2: Management with token
 mcp-proxy status --token secret
-mcp-proxy load shell --token secret
+mcp-proxy load greet --token secret
 ```
 
-### 6. Interactive Client (manual)
+### 5. Interactive Client (manual)
 Connect to any running MCP server:
 
 ```bash
@@ -106,7 +94,11 @@ quit               Disconnect
 |------|-------------|
 | `configs/factory_echo.yaml` | Factory + Echo (stdio) |
 | `configs/proxy_echo.yaml` | Proxy + Echo (HTTP) |
-| `configs/proxy_shell.yaml` | Proxy + Shell (HTTP) |
-| `configs/proxy_full.yaml` | Proxy + Echo + Shell (HTTP, auto-prefix) |
+| `configs/proxy_full.yaml` | Proxy + Echo + Greet (HTTP, auto-prefix) |
 
 More examples in `config/` at the project root.
+
+## Production Plugins
+
+Production tool plugins (shell, wekan, mattermost) are available as separate
+PyPI packages. See [mcp_tools](https://github.com/cuber-it/mcp_tools).
