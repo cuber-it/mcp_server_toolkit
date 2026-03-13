@@ -14,10 +14,14 @@
   for formatted output, used by Factory and Proxy management tools.
 
 ### Factory
-- Refactored to use `PluginRegistry` from framework. No behavioral changes.
+- Refactored to use `PluginRegistry` from framework.
+- Logging plugin now uses `TextToolLogger` + `TranscriptLogger` + `CompositeToolLogger` from framework.
+- Management plugin uses `plugin_status()` and `plugin_list()` introspection helpers.
 
 ### Proxy
-- Refactored to use `PluginRegistry` from framework. No behavioral changes.
+- Refactored to use `PluginRegistry` from framework.
+- `tool_log.py` now wraps `JsonlToolLogger` from framework (thin subclass with proxy defaults).
+- Management tools use `plugin_status()` and `tool_list()` introspection helpers.
 
 ### Notes
 - Non-breaking: all public APIs unchanged, all 142 tests pass.

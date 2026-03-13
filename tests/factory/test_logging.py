@@ -9,10 +9,9 @@ def test_log_on_off():
     assert "OFF" in settings.set_logging(False)
     assert settings.log_enabled is False
 
-def test_transcript_on_off(tmp_path, monkeypatch):
-    import mcp_server_factory.plugins.logging as log_mod
-    monkeypatch.setattr(log_mod, "TRANSCRIPT_DIR", tmp_path)
+def test_transcript_on_off(tmp_path):
     settings = LogSettings()
+    settings._transcript.transcript_dir = tmp_path
     assert "ON" in settings.start_transcript()
     assert settings.transcript_enabled is True
     assert settings.transcript_file.exists()
@@ -21,20 +20,21 @@ def test_transcript_on_off(tmp_path, monkeypatch):
 
 def test_log_call_writes_to_file(tmp_path):
     settings = LogSettings()
-    settings.log_file = tmp_path / "test.log"
-    settings.log_enabled = True
+    settings.set_logging(True)
+    # Point the text logger to tmp
+    settings._text.log_file = tmp_path / "test.log"
+    settings._rebuild_composite()
     settings.log_call("my_tool", {"param": "value"}, "result", True)
-    content = settings.log_file.read_text()
+    content = settings._text.log_file.read_text()
     assert "OK" in content and "my_tool" in content
 
 def test_log_call_noop_when_disabled():
     settings = LogSettings()
     settings.log_call("my_tool", {}, "result", True)  # should not raise
 
-def test_transcript_writes_markdown(tmp_path, monkeypatch):
-    import mcp_server_factory.plugins.logging as log_mod
-    monkeypatch.setattr(log_mod, "TRANSCRIPT_DIR", tmp_path)
+def test_transcript_writes_markdown(tmp_path):
     settings = LogSettings()
+    settings._transcript.transcript_dir = tmp_path
     settings.start_transcript()
     settings.log_call("my_tool", {"x": "1"}, "done", True)
     content = settings.transcript_file.read_text()

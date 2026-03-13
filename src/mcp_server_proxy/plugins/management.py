@@ -6,7 +6,7 @@ import logging
 
 from mcp import types
 from mcp.server.fastmcp import Context
-from mcp_server_framework.plugins import list_available_plugins
+from mcp_server_framework.plugins import list_available_plugins, plugin_status, plugin_list, tool_list
 
 logger = logging.getLogger(__name__)
 
@@ -133,25 +133,7 @@ def register(mcp, config: dict) -> None:
     @mcp.tool()
     def proxy__status() -> str:
         """Show all loaded plugins and their tools, resources, prompts."""
-        info = proxy.list_plugins()
-        parts = [f"{info['total_tools']} tools"]
-        if info["total_resources"]:
-            parts.append(f"{info['total_resources']} resources")
-        if info["total_prompts"]:
-            parts.append(f"{info['total_prompts']} prompts")
-        lines = [f"Proxy: {info['total_plugins']} plugins, {', '.join(parts)}\n"]
-        for name, p in info["plugins"].items():
-            tools_str = ", ".join(p["tools"][:5])
-            if p["tool_count"] > 5:
-                tools_str += f" (+{p['tool_count'] - 5} more)"
-            extras = []
-            if p["resource_count"]:
-                extras.append(f"{p['resource_count']} resources")
-            if p["prompt_count"]:
-                extras.append(f"{p['prompt_count']} prompts")
-            extra_str = f" [{', '.join(extras)}]" if extras else ""
-            lines.append(f"  {name}: {tools_str}{extra_str}")
-        return "\n".join(lines)
+        return plugin_status(proxy.registry)
 
     @mcp.tool()
     def proxy__list() -> str:
@@ -173,8 +155,4 @@ def register(mcp, config: dict) -> None:
             if not tools:
                 return "(no dynamic tools loaded)"
             return "\n".join(tools)
-        info = proxy.list_plugins()
-        all_tools = []
-        for p in info["plugins"].values():
-            all_tools.extend(p["tools"])
-        return "\n".join(sorted(all_tools)) or "(no tools loaded)"
+        return tool_list(proxy.registry)
