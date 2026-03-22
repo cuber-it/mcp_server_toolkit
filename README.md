@@ -373,6 +373,61 @@ def my_validator(tool_name: str, params: dict) -> str | None:
 set_pre_call_validator(my_validator)
 ```
 
+### Gate — Session-based TOTP Protection (v1.5)
+
+`mcp_server_framework.gate` protects sensitive tool groups behind a TOTP second factor. All groups start **locked** on every proxy restart. A valid authenticator code unlocks a group for a configurable inactivity timeout (default: 2h). Any tool call resets the timer.
+
+**Quick start:**
+
+```python
+from mcp_server_framework.gate import Gate
+
+def register(mcp, config):
+    gate = Gate(config.get("gate", {}))
+    gate.register_tools(mcp)   # adds gate_unlock, gate_lock, gate_status
+
+    @mcp.tool()
+    @gate.protect("shell")     # inner decorator — mcp.tool() must be outer
+    def shell_exec(command: str) -> str:
+        import subprocess
+        return subprocess.check_output(command, shell=True, text=True)
+```
+
+**config.yaml:**
+
+```yaml
+gate:
+  enabled: true                  # false = tools work without authentication
+  secret_backend: env            # env | file | vaultwarden
+  groups:
+    shell:
+      timeout: 7200              # inactivity timeout in seconds
+      secret_ref: MCP_GATE_SECRET_SHELL   # env var name
+    vault:
+      timeout: 3600
+      secret_ref: MCP_GATE_SECRET_VAULT
+```
+
+**MCP tools registered by `gate.register_tools(mcp)`:**
+
+| Tool | Description |
+|------|-------------|
+| `gate_unlock(group, code)` | Unlock a group with 6-digit TOTP code |
+| `gate_lock(group="")` | Lock a group, or all groups — kill switch |
+| `gate_status()` | Show status and remaining time per group |
+
+**Secret backends:**
+
+| Backend | Config | Dependencies | Rotation |
+|---------|--------|--------------|----------|
+| `env` | `secret_ref: ENV_VAR_NAME` | none | restart |
+| `file` | `secret_ref: key`, `secret_file: ~/.mcp_gate_secrets` | none | immediate |
+| `vaultwarden` | `secret_ref: item-name`, `vaultwarden_url/token` | `requests` | after TTL |
+
+Security properties: lockout after 5 consecutive wrong codes, no persistent unlock state across restarts, kill switch via `gate_lock()`.
+
+See [`src/mcp_server_framework/gate/README.md`](src/mcp_server_framework/gate/README.md) for full documentation.
+
 ## Logging
 
 Configure log format via config or environment:
