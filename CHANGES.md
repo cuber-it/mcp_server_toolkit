@@ -1,5 +1,14 @@
 # Changelog
 
+## unreleased
+
+### Framework
+- Added `mcp_server_framework.gate` — session-based TOTP gate for MCP tool groups
+  - `Gate` class with `protect()` decorator, `register_tools()`, lockout after 5 failures
+  - Pluggable secret backends: `EnvBackend` (default), `FileBackend`, `VaultwardenBackend`
+  - Pure stdlib TOTP (RFC 6238), no mandatory dependencies
+  - 16 tests in `tests/framework/test_gate.py`
+
 ## 0.9.2 (2026-03-11)
 
 ### Framework
