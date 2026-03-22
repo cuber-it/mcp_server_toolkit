@@ -1,7 +1,12 @@
 """TOTP — RFC 6238. Pure stdlib, no pyotp dependency."""
 
 from __future__ import annotations
-import base64, hashlib, hmac, os, struct, time
+import base64
+import hashlib
+import hmac
+import os
+import struct
+import time
 
 
 def _hotp(secret_bytes: bytes, counter: int) -> int:

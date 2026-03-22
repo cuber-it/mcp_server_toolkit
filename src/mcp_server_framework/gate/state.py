@@ -1,8 +1,9 @@
 """GateState — Thread-safe in-memory session state per group."""
 
 from __future__ import annotations
-import threading, time
-from dataclasses import dataclass, field
+import threading
+import time
+from dataclasses import dataclass
 
 
 @dataclass

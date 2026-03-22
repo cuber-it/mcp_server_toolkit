@@ -1,7 +1,8 @@
 """Gate — Core: unlock, lock, check, protect, register_tools."""
 
 from __future__ import annotations
-import functools, logging
+import functools
+import logging
 from typing import Any, Callable
 
 from .backends import SecretBackend
@@ -76,6 +77,7 @@ class Gate:
                 f"Restart proxy to reset."
             )
 
+        assert self._backend is not None  # guaranteed: enabled=True implies backend is set
         try:
             secret = self._backend.get(self.cfg.groups[group].secret_ref)
         except RuntimeError as e:
