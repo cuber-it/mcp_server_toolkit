@@ -15,9 +15,14 @@ Plugin API (via mcp_server_framework.plugins):
     load_module(name, config)      → Resolve and import plugin
     find_register(module)          → Find register() function
     ToolTracker(mcp)               → Proxy that tracks tool registrations
+
+Gate API (via mcp_server_framework.gate):
+    Gate                           → Session-based TOTP gate
+    GateLocked                     → Exception raised for locked tools
+    SecretBackend                  → Pluggable secret backend (env/file/vaultwarden)
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 from .config import load_config
 from .server import create_server, run_server

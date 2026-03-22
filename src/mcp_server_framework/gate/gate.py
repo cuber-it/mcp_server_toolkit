@@ -15,6 +15,7 @@ MAX_FAILURES = 5  # lockout after N consecutive failed unlock attempts
 
 
 class GateLocked(Exception):
+    """Raised when a gated tool is called while the group is locked."""
     def __init__(self, group: str):
         self.group = group
         super().__init__(
@@ -26,42 +27,54 @@ class GateLocked(Exception):
 class Gate:
     """Session-based TOTP gate for MCP tool groups.
 
-    Args:
-        config: dict from plugin config.yaml, key 'gate' (or full dict).
+    All groups start locked on every proxy restart. A valid TOTP code unlocks
+    a group for a configurable inactivity timeout (default: 2h). Any tool call
+    within the group resets the timer. After MAX_FAILURES consecutive wrong
+    codes, the group is locked out until proxy restart.
 
-    Usage::
+    Args:
+        config: dict from plugin config.yaml under the 'gate' key.
+
+    Minimal usage::
 
         gate = Gate(config.get("gate", {}))
-        gate.register_tools(mcp)
+        gate.register_tools(mcp)   # adds gate_unlock, gate_lock, gate_status
 
         @mcp.tool()
+        @gate.protect("shell")     # NOTE: protect must be INNER, mcp.tool OUTER
         def shell_exec(command: str) -> str:
-            gate.check_or_raise("shell")
-            gate.touch("shell")
-            ...
+            return subprocess.check_output(command, shell=True, text=True)
 
-        # or decorator:
-        @gate.protect("shell")
-        @mcp.tool()
-        def shell_exec(command: str) -> str: ...
+    If gate is disabled in config (enabled: false), protect() is a no-op and
+    register_tools() skips registration. Tools work without authentication.
     """
 
     def __init__(self, config: dict[str, Any]) -> None:
         self.cfg = GateConfig.from_dict(config)
+        self.enabled = self.cfg.enabled
         self.state = GateState()
-        self._backend: SecretBackend = SecretBackend.from_config(config)
-        self._failures: dict[str, int] = {}  # group → consecutive failures
+        self._backend: SecretBackend | None = (
+            SecretBackend.from_config(config) if self.enabled else None
+        )
+        self._failures: dict[str, int] = {}
 
     # ------------------------------------------------------------------
     # Core
     # ------------------------------------------------------------------
 
     def unlock(self, group: str, code: str) -> tuple[bool, str]:
+        """Verify TOTP and unlock a group. Returns (success, message)."""
+        if not self.enabled:
+            return True, "Gate is disabled."
+
         if group not in self.cfg.groups:
             return False, f"Unknown group '{group}'."
 
         if self._failures.get(group, 0) >= MAX_FAILURES:
-            return False, f"Group '{group}' locked out after {MAX_FAILURES} failed attempts. Restart proxy to reset."
+            return False, (
+                f"Group '{group}' locked out after {MAX_FAILURES} failed attempts. "
+                f"Restart proxy to reset."
+            )
 
         try:
             secret = self._backend.get(self.cfg.groups[group].secret_ref)
@@ -81,6 +94,7 @@ class Gate:
         return True, f"Group '{group}' unlocked. Auto-lock after {timeout // 60}m inactivity."
 
     def lock(self, group: str | None = None) -> str:
+        """Manually lock a group, or all groups if group is None."""
         if group:
             self.state.lock(group)
             logger.info("Gate: '%s' locked", group)
@@ -90,15 +104,23 @@ class Gate:
         return "All groups locked."
 
     def check_or_raise(self, group: str) -> None:
+        """Raise GateLocked if group is locked. No-op if gate is disabled."""
+        if not self.enabled:
+            return
         if not self.state.is_unlocked(group):
             if self.cfg.audit.log_blocked:
                 logger.warning("Gate: blocked call to locked group '%s'", group)
             raise GateLocked(group)
 
     def touch(self, group: str) -> None:
-        self.state.touch(group)
+        """Reset inactivity timer for group."""
+        if self.enabled:
+            self.state.touch(group)
 
     def status(self) -> dict:
+        """Return status dict for all known groups."""
+        if not self.enabled:
+            return {}
         return self.state.status()
 
     # ------------------------------------------------------------------
@@ -106,7 +128,18 @@ class Gate:
     # ------------------------------------------------------------------
 
     def protect(self, group: str) -> Callable:
-        """Decorator: gate-protect a tool function."""
+        """Decorator factory: gate-protect a function.
+
+        IMPORTANT — decorator order with FastMCP::
+
+            @mcp.tool()          # outer: registers the tool
+            @gate.protect("shell")  # inner: wraps the actual function
+            def shell_exec(command: str) -> str:
+                ...
+
+        This ensures FastMCP sees the original function signature for
+        schema generation, while gate protection runs on every call.
+        """
         def decorator(fn: Callable) -> Callable:
             @functools.wraps(fn)
             def wrapper(*args, **kwargs):
@@ -121,7 +154,14 @@ class Gate:
     # ------------------------------------------------------------------
 
     def register_tools(self, mcp: Any) -> None:
-        """Register gate_unlock, gate_lock, gate_status as MCP tools."""
+        """Register gate_unlock, gate_lock, gate_status as MCP tools.
+
+        No-op if gate is disabled (enabled: false in config).
+        """
+        if not self.enabled:
+            logger.debug("Gate: disabled, skipping tool registration")
+            return
+
         gate = self
 
         @mcp.tool()
@@ -137,7 +177,11 @@ class Gate:
 
         @mcp.tool()
         def gate_lock(group: str = "") -> str:
-            """Manually lock a group, or all groups if group is empty."""
+            """Manually lock a group, or all groups if group is empty.
+
+            Args:
+                group: Group name, or empty to lock all groups (kill switch).
+            """
             return gate.lock(group or None)
 
         @mcp.tool()
@@ -145,7 +189,7 @@ class Gate:
             """Show lock/unlock status and remaining inactivity time per group."""
             s = gate.status()
             if not s:
-                return "No groups configured."
+                return "No active groups."
             lines = []
             for grp, info in sorted(s.items()):
                 if info["unlocked"]:

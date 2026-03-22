@@ -1,6 +1,6 @@
 # Changelog
 
-## unreleased
+## 1.5.0 (2026-03-22)
 
 ### Framework
 - Added `mcp_server_framework.gate` — session-based TOTP gate for MCP tool groups
