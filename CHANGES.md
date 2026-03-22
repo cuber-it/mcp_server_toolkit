@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.1 (2026-03-22)
+
+### Framework
+- README: added Gate section under Security
+
 ## 1.5.0 (2026-03-22)
 
 ### Framework
