@@ -22,7 +22,7 @@ Gate API (via mcp_server_framework.gate):
     SecretBackend                  → Pluggable secret backend (env/file/vaultwarden)
 """
 
-__version__ = "1.5.1"
+__version__ = "1.5.2"
 
 from .config import load_config
 from .server import create_server, run_server

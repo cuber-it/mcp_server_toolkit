@@ -426,7 +426,7 @@ gate:
 
 Security properties: lockout after 5 consecutive wrong codes, no persistent unlock state across restarts, kill switch via `gate_lock()`.
 
-See [`src/mcp_server_framework/gate/README.md`](src/mcp_server_framework/gate/README.md) for full documentation.
+See [gate/README.md](https://github.com/cuber-it/mcp_server_toolkit/blob/master/src/mcp_server_framework/gate/README.md) for full documentation.
 
 ## Logging
 

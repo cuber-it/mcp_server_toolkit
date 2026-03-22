@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.2 (2026-03-22)
+
+### Framework
+- README: fix gate documentation link (absolute GitHub URL)
+
 ## 1.5.1 (2026-03-22)
 
 ### Framework
