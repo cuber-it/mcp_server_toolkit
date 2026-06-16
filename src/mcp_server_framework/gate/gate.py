@@ -9,6 +9,7 @@ from .backends import SecretBackend
 from .config import GateConfig
 from .state import GateState
 from .totp import verify_totp
+from ..session_scope import SessionScope
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +54,25 @@ class Gate:
     def __init__(self, config: dict[str, Any]) -> None:
         self.cfg = GateConfig.from_dict(config)
         self.enabled = self.cfg.enabled
-        self.state = GateState()
+        # per-session gate state: each MCP session gets its own GateState, so an
+        # unlock by one client never leaks to another over streamable-http.
+        idle = float(config.get("session_idle_timeout", 10800))
+        self._scope: SessionScope[GateState] = SessionScope(
+            GateState, idle_timeout=idle,
+        )
         self._backend: SecretBackend | None = (
             SecretBackend.from_config(config) if self.enabled else None
         )
-        self._failures: dict[str, int] = {}
+
+    def _state(self) -> GateState:
+        """GateState for the active MCP session (lazy, per session)."""
+        return self._scope.current()
+
+    @property
+    def state(self) -> GateState:
+        """GateState of the active MCP session. Kept for compatibility; in an
+        HTTP context this resolves to the calling client's own state."""
+        return self._state()
 
     # ------------------------------------------------------------------
     # Core
@@ -71,7 +86,8 @@ class Gate:
         if group not in self.cfg.groups:
             return False, f"Unknown group '{group}'."
 
-        if self._failures.get(group, 0) >= MAX_FAILURES:
+        st = self._state()
+        if st.failure_count(group) >= MAX_FAILURES:
             return False, (
                 f"Group '{group}' locked out after {MAX_FAILURES} failed attempts. "
                 f"Restart proxy to reset."
@@ -84,24 +100,25 @@ class Gate:
             return False, str(e)
 
         if not verify_totp(secret, code):
-            self._failures[group] = self._failures.get(group, 0) + 1
-            remaining = MAX_FAILURES - self._failures[group]
+            count = st.record_failure(group)
+            remaining = MAX_FAILURES - count
             logger.warning("Gate: failed unlock for '%s' (%d attempts left)", group, remaining)
             return False, f"Invalid code. {remaining} attempt(s) left."
 
-        self._failures[group] = 0
+        st.reset_failure(group)
         timeout = self.cfg.groups[group].timeout
-        self.state.unlock(group, timeout_seconds=timeout)
+        st.unlock(group, timeout_seconds=timeout)
         logger.info("Gate: '%s' unlocked (timeout=%ds)", group, timeout)
         return True, f"Group '{group}' unlocked. Auto-lock after {timeout // 60}m inactivity."
 
     def lock(self, group: str | None = None) -> str:
         """Manually lock a group, or all groups if group is None."""
+        st = self._state()
         if group:
-            self.state.lock(group)
+            st.lock(group)
             logger.info("Gate: '%s' locked", group)
             return f"Group '{group}' locked."
-        self.state.lock_all()
+        st.lock_all()
         logger.info("Gate: all groups locked")
         return "All groups locked."
 
@@ -109,7 +126,7 @@ class Gate:
         """Raise GateLocked if group is locked. No-op if gate is disabled."""
         if not self.enabled:
             return
-        if not self.state.is_unlocked(group):
+        if not self._state().is_unlocked(group):
             if self.cfg.audit.log_blocked:
                 logger.warning("Gate: blocked call to locked group '%s'", group)
             raise GateLocked(group)
@@ -117,13 +134,13 @@ class Gate:
     def touch(self, group: str) -> None:
         """Reset inactivity timer for group."""
         if self.enabled:
-            self.state.touch(group)
+            self._state().touch(group)
 
     def status(self) -> dict:
         """Return status dict for all known groups."""
         if not self.enabled:
             return {}
-        return self.state.status()
+        return self._state().status()
 
     # ------------------------------------------------------------------
     # Decorator

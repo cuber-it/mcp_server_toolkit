@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.0 (2026-06-16)
+
+### Framework
+- Added `SessionScope` primitive (`mcp_server_framework.session_scope`) for
+  per-MCP-session state isolation under streamable-http, plus `current_session`
+  and `current_session_key` helpers; all exported from the package root.
+  - Lazy per-session value creation, optional idle eviction, shutdown cleanup.
+  - Single shared slot outside a request (stdio, tests) — single-session
+    behaviour unchanged.
+- Gate: state and failure counters are now per-session via `SessionScope`, so
+  an unlock or lockout by one client no longer leaks to other clients.
+
 ## 1.5.2 (2026-03-22)
 
 ### Framework

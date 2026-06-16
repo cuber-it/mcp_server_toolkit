@@ -244,3 +244,44 @@ def test_gate_status_locked():
     s = gate.status()
     # vault not yet in state (never touched) — that's fine
     assert not s.get("shell", {}).get("unlocked", False)
+
+
+# ---------------------------------------------------------------------------
+# Gate — per-session isolation (streamable-http: one process, many sessions)
+# ---------------------------------------------------------------------------
+
+import mcp_server_framework.session_scope as _ss
+
+
+def test_gate_unlock_is_per_session(monkeypatch):
+    """An unlock by one MCP session must not unlock another session."""
+    gate = Gate(_cfg())
+    session_a, session_b = object(), object()
+
+    # Session A unlocks "shell"
+    monkeypatch.setattr(_ss, "current_session", lambda: session_a)
+    gate.state.unlock("shell", timeout_seconds=3600)
+    gate.check_or_raise("shell")  # A: allowed, must not raise
+
+    # Session B sees the group as locked
+    monkeypatch.setattr(_ss, "current_session", lambda: session_b)
+    with pytest.raises(GateLocked):
+        gate.check_or_raise("shell")
+
+    # Session A is still unlocked
+    monkeypatch.setattr(_ss, "current_session", lambda: session_a)
+    gate.check_or_raise("shell")
+
+
+def test_gate_failures_are_per_session(monkeypatch):
+    """Failure counters must not leak across sessions (no cross-session DoS)."""
+    gate = Gate(_cfg())
+    session_a, session_b = object(), object()
+
+    monkeypatch.setattr(_ss, "current_session", lambda: session_a)
+    for _ in range(3):
+        gate.unlock("shell", "000000")  # wrong code → counts in A only
+    assert gate.state.failure_count("shell") == 3
+
+    monkeypatch.setattr(_ss, "current_session", lambda: session_b)
+    assert gate.state.failure_count("shell") == 0

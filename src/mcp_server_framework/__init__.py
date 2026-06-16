@@ -22,13 +22,14 @@ Gate API (via mcp_server_framework.gate):
     SecretBackend                  → Pluggable secret backend (env/file/vaultwarden)
 """
 
-__version__ = "1.5.2"
+__version__ = "1.6.0"
 
 from .config import load_config
 from .server import create_server, run_server
 from .health import start_health_server, create_health_app
 from .logging import setup_logging
 from .oauth import IntrospectionTokenVerifier
+from .session_scope import SessionScope, current_session, current_session_key
 
 __all__ = [
     "load_config",
@@ -38,4 +39,7 @@ __all__ = [
     "create_health_app",
     "setup_logging",
     "IntrospectionTokenVerifier",
+    "SessionScope",
+    "current_session",
+    "current_session_key",
 ]

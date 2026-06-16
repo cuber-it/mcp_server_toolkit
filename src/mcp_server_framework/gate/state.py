@@ -40,6 +40,20 @@ class GateState:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._groups: dict[str, GroupSession] = {}
+        self._failures: dict[str, int] = {}
+
+    def record_failure(self, group: str) -> int:
+        with self._lock:
+            self._failures[group] = self._failures.get(group, 0) + 1
+            return self._failures[group]
+
+    def reset_failure(self, group: str) -> None:
+        with self._lock:
+            self._failures[group] = 0
+
+    def failure_count(self, group: str) -> int:
+        with self._lock:
+            return self._failures.get(group, 0)
 
     def _get(self, group: str) -> GroupSession:
         if group not in self._groups:
