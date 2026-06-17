@@ -42,6 +42,10 @@ Thumbs.db
 
 # Logs
 *.log
+logs/
+
+# Stray downloads / packages
+*.deb
 
 # Claude Code
 CLAUDE.md
